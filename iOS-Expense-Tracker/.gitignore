@@ -1,0 +1,70 @@
+# Xcode
+.DS_Store
+*.swp
+*.swo
+*~
+build/
+DerivedData/
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+xcuserdata/
+*.xccheckout
+*.moved-aside
+*.xcuserstate
+*.xcscmblueprint
+
+# Swift Package Manager
+.swiftpm/
+.build/
+Packages/
+Package.resolved
+*.xcodeproj/
+
+# App specific
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# macOS
+.DS_Store
+
+# OpenClaw workspace files (exclude from iOS project)
+AGENTS.md
+BOOTSTRAP.md
+HEARTBEAT.md
+IDENTITY.md
+SOUL.md
+TOOLS.md
+USER.md
+memory/
+skills/
+steipete-instruments/
+university-public-opinion-report.html
+
+# Local development files
+.local/
+.env
+.env.local
+secrets.json
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+
+# Documentation
+docs/_build/
+
+# Test coverage
+coverage/
+*.profraw
+*.profdata

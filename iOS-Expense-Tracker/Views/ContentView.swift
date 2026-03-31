@@ -77,6 +77,28 @@ struct ContentView: View {
             // 第四个Tab - 设置页面
             NavigationView {
                 Form {
+                    Section("数据管理") {
+                        Button(action: { exportDataBackup() }) {
+                            HStack {
+                                Image(systemName: "square.and.arrow.up")
+                                    .foregroundColor(AppTheme.primaryColor)
+                                Text("导出数据备份")
+                                    .foregroundColor(AppTheme.textPrimary)
+                                Spacer()
+                            }
+                        }
+
+                        Button(action: { importDataBackup() }) {
+                            HStack {
+                                Image(systemName: "square.and.arrow.down")
+                                    .foregroundColor(AppTheme.primaryColor)
+                                Text("导入数据备份")
+                                    .foregroundColor(AppTheme.textPrimary)
+                                Spacer()
+                            }
+                        }
+                    }
+
                     Section("分类管理") {
                         ForEach(categories) { category in
                             HStack {
@@ -120,6 +142,16 @@ struct ContentView: View {
                 modelContext.delete(transactions[index])
             }
         }
+    }
+
+    private func exportDataBackup() {
+        // TODO: 实现数据导出功能
+        print("📤 已触发数据导出功能，将支持 JSON/CSV 格式导出")
+    }
+
+    private func importDataBackup() {
+        // TODO: 实现数据导入功能
+        print("📥 已触发数据导入功能，将支持从备份文件还原数据")
     }
 }
 
@@ -172,16 +204,41 @@ struct AddTransactionView: View {
     @State private var note = ""
     @State private var type: TransactionType = .expense
     @State private var selectedCategory: Category?
+    @State private var showingErrorAlert = false
+    @State private var errorMessage = ""
     @Query private var categories: [Category]
+
+    // 验证金额输入是否有效
+    var isAmountValid: Bool {
+        guard !amount.isEmpty else { return false }
+        guard let amountValue = Double(amount) else { return false }
+        return amountValue > 0
+    }
+
+    var isSaveButtonDisabled: Bool {
+        title.isEmpty || !isAmountValid
+    }
 
     var body: some View {
         NavigationView {
             Form {
                 Section("基本信息") {
-                    TextField("金额", text: $amount)
+                    TextField("金额（必填）", text: $amount)
                         .keyboardType(.decimalPad)
-                    TextField("标题", text: $title)
-                    TextField("备注", text: $note)
+                        .onChange(of: amount) { oldValue, newValue in
+                            // 只允许数字和小数点
+                            let filtered = newValue.filter { $0.isNumber || $0 == "." }
+                            // 确保只有一个小数点
+                            let components = filtered.split(separator: ".", omittingEmptySubsequences: false)
+                            if components.count > 2 {
+                                amount = oldValue
+                            } else {
+                                amount = filtered
+                            }
+                        }
+
+                    TextField("标题（必填）", text: $title)
+                    TextField("备注（可选）", text: $note)
                 }
 
                 Section("类型") {
@@ -210,17 +267,44 @@ struct AddTransactionView: View {
             .navigationTitle("添加交易")
             .navigationBarItems(
                 leading: Button("取消") { dismiss() },
-                trailing: Button("保存") { saveTransaction() }
-                    .disabled(amount.isEmpty || title.isEmpty)
+                trailing: Button("保存") { validateAndSave() }
+                    .disabled(isSaveButtonDisabled)
             )
+            .alert("输入验证失败", isPresented: $showingErrorAlert) {
+                Button("确定") { }
+            } message: {
+                Text(errorMessage)
+            }
         }
     }
 
-    private func saveTransaction() {
-        guard let amountValue = Double(amount), !title.isEmpty else { return }
+    private func validateAndSave() {
+        // 验证标题
+        if title.trimmingCharacters(in: .whitespaces).isEmpty {
+            errorMessage = "请输入交易标题"
+            showingErrorAlert = true
+            return
+        }
 
+        // 验证金额
+        guard let amountValue = Double(amount) else {
+            errorMessage = "金额必须是有效的数字"
+            showingErrorAlert = true
+            return
+        }
+
+        if amountValue <= 0 {
+            errorMessage = "金额必须大于 0"
+            showingErrorAlert = true
+            return
+        }
+
+        saveTransaction(amount: amountValue)
+    }
+
+    private func saveTransaction(amount: Double) {
         let transaction = Transaction(
-            amount: amountValue,
+            amount: amount,
             title: title,
             note: note.isEmpty ? nil : note,
             type: type,
