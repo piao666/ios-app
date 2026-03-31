@@ -20,6 +20,19 @@ jobs:
         sudo xcode-select -s /Applications/Xcode.app
         xcodebuild -version
         
+    - name: Install XcodeGen
+      run: |
+        brew install xcodegen
+        xcodegen version
+        
+    - name: Generate Xcode project with XcodeGen
+      working-directory: ./iOS-Expense-Tracker
+      run: |
+        echo "=== Generating Xcode project from project.yml ==="
+        xcodegen generate
+        echo "=== Project generated successfully ==="
+        ls -la ExpenseTracker.xcodeproj/
+        
     - name: Show project structure
       working-directory: ./iOS-Expense-Tracker
       run: |
@@ -70,6 +83,19 @@ jobs:
       run: |
         sudo xcode-select -s /Applications/Xcode.app
         
+    - name: Install XcodeGen
+      run: |
+        brew install xcodegen
+        xcodegen version
+        
+    - name: Generate Xcode project with XcodeGen
+      working-directory: ./iOS-Expense-Tracker
+      run: |
+        echo "=== Generating Xcode project from project.yml ==="
+        xcodegen generate
+        echo "=== Project generated successfully ==="
+        ls -la ExpenseTracker.xcodeproj/
+        
     - name: Create development IPA
       working-directory: ./iOS-Expense-Tracker
       run: |
@@ -109,5 +135,6 @@ jobs:
         echo "- ✅ Project builds successfully" >> $GITHUB_STEP_SUMMARY
         echo "- 📱 Target: iOS Simulator" >> $GITHUB_STEP_SUMMARY
         echo "- 📁 Project path: iOS-Expense-Tracker/" >> $GITHUB_STEP_SUMMARY
+        echo "- 🛠️ XcodeGen: Used for project generation" >> $GITHUB_STEP_SUMMARY
         echo "- 🚀 Next step: Configure code signing for IPA export" >> $GITHUB_STEP_SUMMARY
         echo "- 🔧 For side-loading: Use AltStore or similar tools" >> $GITHUB_STEP_SUMMARY
