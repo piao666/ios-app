@@ -77,38 +77,9 @@ struct DashboardView: View {
                 .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 2)
                 .padding(.horizontal, AppTheme.spacingLarge)
 
-                // 占位符 - 消费占比可视化
+                // 分类消费占比可视化
                 VStack(spacing: AppTheme.spacingMedium) {
-                    HStack {
-                        Text("分类消费占比")
-                            .font(.system(size: AppTheme.fontSizeMedium, weight: .semibold))
-                            .foregroundColor(AppTheme.textPrimary)
-
-                        Spacer()
-                    }
-
-                    // 可视化占位符
-                    ZStack {
-                        AppTheme.primaryColorLight.opacity(0.1)
-
-                        VStack(spacing: AppTheme.spacingMedium) {
-                            Image(systemName: "chart.pie")
-                                .font(.system(size: 48))
-                                .foregroundColor(AppTheme.primaryColor.opacity(0.5))
-
-                            Text("图表展示位置")
-                                .font(.system(size: AppTheme.fontSizeMedium, weight: .medium))
-                                .foregroundColor(AppTheme.textSecondary)
-
-                            Text("敬请期待详细的消费分析数据")
-                                .font(.system(size: AppTheme.fontSizeSmall))
-                                .foregroundColor(AppTheme.textTertiary)
-                                .multilineTextAlignment(.center)
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    }
-                    .frame(height: 200)
-                    .cornerRadius(AppTheme.cornerRadiusLarge)
+                    ExpensePieChartView(transactions: currentMonthTransactions)
                 }
                 .padding(.horizontal, AppTheme.spacingLarge)
 
