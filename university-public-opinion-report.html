@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高校舆情简报 | 24小时监测报告</title>
+    <style>
+        :root {
+            --primary-color: #1a237e;
+            --secondary-color: #283593;
+            --accent-color: #3949ab;
+            --success-color: #2e7d32;
+            --warning-color: #f57c00;
+            --danger-color: #c62828;
+            --info-color: #0277bd;
+            --light-bg: #f5f7ff;
+            --card-bg: #ffffff;
+            --text-primary: #212121;
+            --text-secondary: #757575;
+            --border-color: #e0e0e0;
+            --shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #f5f7ff 0%, #e3e9ff 100%);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        /* 头部 */
+        .header {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            color: white;
+            padding: 30px 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M0,0 L100,0 L100,100 Z" fill="rgba(255,255,255,0.05)"/></svg>');
+            background-size: cover;
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            font-size: 2.5rem;
+        }
+
+        .logo-text h1 {
+            font-size: 1.8rem;
+            font-weight: 600;
+        }
+
+        .logo-text p {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .report-info {
+            text-align: right;
+        }
+
+        .report-date {
+            font-size: 1.2rem;
+            font-weight: 500;
+            margin-bottom: 5px;
+        }
+
+        .report-period {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        /* 概览卡片 */
+        .overview-cards {
+            max-width: 1200px;
+            margin: 30px auto;
+            padding: 0 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: var(--shadow);
+            transition: transform 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .card-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            color: white;
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .card-value {
+            font-size: 2.2rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .card-trend {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.9rem;
+        }
+
+        .trend-up {
+            color: var(--success-color);
+        }
+
+        .trend-down {
+            color: var(--danger-color);
+        }
+
+        /* 热点事件 */
+        .hot-events {
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--primary-color);
+            margin-bottom: 25px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--accent-color);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-title::before {
+            content: '🔥';
+            font-size: 1.3rem;
+        }
+
+        .events-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 25px;
+        }
+
+        .event-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: var(--shadow);
+            border-left: 4px solid var(--accent-color);
+        }
+
+        .event-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 15px;
+        }
+
+        .event-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            flex: 1;
+        }
+
+        .event-risk {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+
+        .risk-high {
+            background: #ffebee;
+            color: var(--danger-color);
+        }
+
+        .risk-medium {
+            background: #fff3e0;
+            color: var(--warning-color);
+        }
+
+        .risk-low {
+            background: #e8f5e9;
+            color: var(--success-color);
+        }
+
+        .event-content {
+            color: var(--text-secondary);
+            margin-bottom: 15px;
+            line-height: 1.7;
+        }
+
+        .event-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .event-platform {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .event-stats {
+            display: flex;
+            gap: 15px;
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        /* 舆情趋势 */
+        .trend-section {
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        .trend-chart {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: var(--shadow);
+            margin-bottom: 30px;
+        }
+
+        .chart-placeholder {
+            height: 300px;
+            background: linear-gradient(135deg, #f8f9ff 0%, #e8ebff 100%);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        /* 平台分布 */
+        .platform-distribution {
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        .platform-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .platform-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: var(--shadow);
+            text-align: center;
+        }
+
+        .platform-icon {
+            font-size: 2.5rem;
+            margin-bottom: 15px;
+        }
+
+        .platform-name {
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .platform-count {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--accent-color);
+        }
+
+        /* 建议措施 */
+        .recommendations {
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        .recommendations-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .recommendation-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: var(--shadow);
+        }
+
+        .rec-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .rec-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            background: var(--accent-color);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+        }
+
+        .rec-title {
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .rec-content {
+            color: var(--text-secondary);
+            line-height: 1.7;
+        }
+
+        /* 底部 */
+        .footer {
+            background: var(--primary-color);
+            color: white;
+            padding: 30px 0;
+            margin-top: 50px;
+        }
+
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+            text-align: center;
+        }
+
+        .footer-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .footer-logo {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .footer-contact {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .footer-note {
+            font-size: 0.85rem;
+            opacity: 0.7;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding-top: 20px;
+        }
+
+        /* 响应式 */
+        @media (max-width: 768px) {
+            .header-top {
+                flex-direction: column;
+                text-align: center;
+                gap: 15px;
+            }
+
+            .report-info {
+                text-align: center;
+            }
+
+            .events-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .event-meta {
+                flex-direction: column;
+                gap: 10px;
+                align-items: flex-start;
+            }
+
+            .footer-info {
+                flex-direction: column;
+                gap: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 头部 -->
+    <header class="header">
+        <div class="header-content">
+            <div class="header-top">
+                <div class="logo">
+                    <div class="logo-icon">🏫</div>
+                    <div class="logo-text">
+                        <h1>高校舆情监测中心</h1>
+                        <p>24小时实时舆情分析报告</p>
+                    </div>
+                </div>
+                <div class="report-info">
+                    <div class="report-date">2026年3月29日</div>
+                    <div class="report-period">监测时段：03月28日 16:00 - 03月29日 16:00</div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- 概览卡片 -->
+    <section class="overview-cards">
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: var(--primary-color);">📊</div>
+                <div class="card-title">舆情总量</div>
+            </div>
+            <div class="card-value">1,247</div>
+            <div class="card-trend trend-up">
+                <span>↑ 12.5%</span>
+                <span>较昨日</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: var(--warning-color);">⚠️</div>
+                <div class="card-title">负面舆情</div>
+            </div>
+            <div class="card-value">89</div>
+            <div class="card-trend trend-down">
+                <span>↓ 8.3%</span>
+                <span>较昨日</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: var(--danger-color);">🔥</div>
+                <div class="card-title">热点事件</div>
+            </div>
+            <div class="card-value">7</div>
+            <div class="card-trend trend-up">
+                <span>↑ 2</span>
+                <span>新增</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: var(--success-color);">📈</div>
+                <div class="card-title">正面舆情</div>
+            </div>
+            <div class="card-value">856</div>
+            <div class="card-trend trend-up">
+                <span>↑ 15.2%</span>
+                <span>较昨日</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- 热点事件 -->
+    <section class="hot-events">
+        <h2 class="section-title">24小时热点事件</h2>
+        <div class="events-grid">
+            <div class="event-card">
+                <div class="event-header">
+                    <h3 class="event-title">清华大学发布AI教育新政策引热议</h3>
+                    <span class="event-risk risk-high">高风险</span>
+                </div>
+                <p class="event-content">
+                    清华大学宣布将AI课程纳入所有专业必修课，引发学生和教师广泛讨论。部分学生担忧课程负担加重，相关话题在微博、知乎等平台热度持续攀升。
+                </p>
+                <div class="event-meta">
+                    <div class="event-platform">
+                        <span>📱</span>
+                        <span>微博、知乎、小红书</span>
+                    </div>
+                    <div class="event-stats">
+                        <div class="stat-item">
+                            <span>💬</span>
+                            <span>3.2万</span>
+                        </div>
+                        <div class="stat-item">
+                            <span>👍</span>
+                            <span>1.5万</span>
+                        </div>
+                        <div class="stat-item">
+                            <span>🔄</span>
+                            <span>8.7k</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="event-card">
+                <div class="event-header">
+                    <h3 class="event-title">北京大学食堂价格调整引学生关注</h3>
+                    <span class="event-risk risk-medium">中风险</span>
+                </div>
+                <p class="event-content">
+                    北京大学部分食堂菜品价格微调，学生通过校园论坛和社交媒体表达意见。校方已回应将进行调研，舆情正在监控中。
+                </p>
+                <div class="event-meta">
+                    <div class="event-platform">
+                        <span>📱</span>
+                        <span>校园论坛、微信、微博</span>
+                    </div>
+                    <div class="event-stats">
+                        <div class="stat-item">
+                            <span>💬</span>
+                            <span>1.8万</span>
+                        </div>
+                        <div class="stat-item">
+                            <span>👍</span>
+                            <span>4.2k</span>
+                        </div>
+                        <div class="stat-item">
+                            <span>🔄</span>
+                            <span>2.3k</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="event-card">
+                <div class="event-header">
+                    <h3 class="event-title">复旦大学科研成果登上《Nature》封面</h3>
+                    <span class="event-risk risk-low">低风险</span>
+                </div>
+                <p class="event-content">
+                    复旦大学团队在量子计算领域取得突破性进展，研究成果登上《Nature》封面，引发学术界和媒体广泛关注，正面舆情为主。
+                </p>
+                <div class="event-meta">
+                    <div class="event-platform">
+                        <span>📱</span>
+                        <span>学术媒体、新闻客户端</span>
+                    </div>
+                    <div class="event-stats">
+                        <

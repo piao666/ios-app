@@ -23,13 +23,12 @@ jobs:
         brew install xcodegen
         xcodegen version
 
-    - name: Generate Xcode project with XcodeGen
-      working-directory: ./iOS-Expense-Tracker
-      run: |
-        echo "=== Generating Xcode project from project.yml ==="
-        xcodegen generate
-        echo "=== Project generated successfully ==="
-        ls -la ExpenseTracker.xcodeproj/
+-    name: Generate Xcode Project and Build
+        working-directory: ./iOS-Expense-Tracker
+        run: |
+          brew install xcodegen
+          xcodegen generate
+          xcodebuild clean build -project ExpenseTracker.xcodeproj -scheme ExpenseTracker -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO
 
     - name: Install fastlane (可选)
       run: |
