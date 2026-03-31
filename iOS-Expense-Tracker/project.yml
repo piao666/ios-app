@@ -10,6 +10,7 @@ targets:
       - path: .
         excludes:
           - project.yml
+          - ExpenseTrackerTests.swift
     settings:
       base:
         INFOPLIST_FILE: Info.plist

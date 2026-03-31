@@ -19,13 +19,14 @@
 9. [x] 项目状态报告生成
 
 ### 🚧 进行中：
-1. [🚨] 仓库访问问题（GitHub 仓库返回 404，需要解决）
-2. [⏳] 云端构建测试（已推送XcodeGen修复，但仓库访问问题阻塞）
+1. [✅] 仓库访问问题已解决（GitHub 仓库现在可访问）
+2. [⚠️] 云端构建测试（iOS Build and Test 失败，CI 成功）
 3. [ ] 侧载安装验证（需要生成 IPA 文件）
 4. [ ] 完善应用功能（统计图表、预算管理）
 
 ### 待解决问题：
-- 🚨 **GitHub 仓库访问问题**：仓库 `piao666/ios-app` 返回 404，但本地 Git 显示推送成功
+- ✅ **GitHub 仓库访问问题已解决**：仓库现在可访问（可能是缓存问题）
+- ⚠️ **iOS 构建失败**：iOS Build and Test 工作流失败（exit code 65）
 - ✅ iOS 真机测试：通过云端构建 + 侧载解决
 - ✅ App Store 发布：个人使用，无需上架
 - ⏳ 数据备份方案：待实现
@@ -35,8 +36,12 @@
 - [x] GitHub Actions 工作流配置（4个工作流，全部路径已修复）
 - [x] 添加XcodeGen支持（project.yml配置）
 - [x] 所有工作流适配XcodeGen（ci.yml, ios-build.yml, build-ipa.yml, shipswift.yml）
-- [🚨] **GitHub 仓库状态**：仓库 `piao666/ios-app` 返回 404（关键问题）
-- [⏳] 云端构建测试（修复已推送，但仓库访问问题阻塞）
+- [✅] **GitHub 仓库状态**：仓库现在可访问（缓存问题已解决）
+- [⚠️] **云端构建状态**：
+  - ✅ CI 工作流：成功（18秒）
+  - ❌ iOS Build and Test：失败（exit code 65）
+  - ❌ build-ipa.yml：失败
+  - ✅ ShipSwift Integration：成功（24秒）
 - [ ] 侧载安装验证（待生成 IPA）
 - [x] 代码质量审查完成
 

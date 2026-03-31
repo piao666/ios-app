@@ -3,90 +3,21 @@ name: Build IPA for Side-loading
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:  # 允许手动触发
+  workflow_dispatch:
 
 jobs:
   build-ipa:
     runs-on: macos-latest
-    
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Setup Xcode
-      run: |
-        sudo xcode-select -s /Applications/Xcode.app
-        xcodebuild -version
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Install XcodeGen
-      run: |
-        brew install xcodegen
-        xcodegen version
-
--    name: Generate Xcode Project and Build
+      - name: Generate Xcode Project with XcodeGen
         working-directory: ./iOS-Expense-Tracker
         run: |
           brew install xcodegen
           xcodegen generate
-          xcodebuild clean build -project ExpenseTracker.xcodeproj -scheme ExpenseTracker -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO
 
-    - name: Install fastlane (可选)
-      run: |
-        # 安装 fastlane 用于自动化构建
-        sudo gem install fastlane -NV || true
-        
-    - name: Build project
-      working-directory: ./iOS-Expense-Tracker
-      run: |
-        echo "=== Building ExpenseTracker ==="
-
-        # 清理构建目录
-        rm -rf build
-        mkdir -p build
-
-        # 构建项目（使用免费开发者证书）
-        xcodebuild clean archive \
-          -project ExpenseTracker.xcodeproj \
-          -scheme ExpenseTracker \
-          -configuration Release \
-          -archivePath build/ExpenseTracker.xcarchive \
-          -destination 'generic/platform=iOS' \
-          CODE_SIGN_IDENTITY="Apple Development" \
-          CODE_SIGNING_REQUIRED=YES \
-          CODE_SIGNING_ALLOWED=YES \
-          PROVISIONING_PROFILE_SPECIFIER="" \
-          DEVELOPMENT_TEAM="" \
-          || { echo "Build failed"; exit 1; }
-
-        echo "=== Archive created successfully ==="
-        ls -la build/
-        
-    - name: Upload build artifacts
-      if: success()
-      uses: actions/upload-artifact@v4
-      with:
-        name: expense-tracker-build
-        path: |
-          iOS-Expense-Tracker/build/
-        retention-days: 30
-        
-    - name: Create build report
-      run: |
-        echo "## 🚀 ExpenseTracker Build Report" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### Build Status: ✅ Success" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### 下一步：" >> $GITHUB_STEP_SUMMARY
-        echo "1. **下载构建产物**：从 Artifacts 下载 iOS-Expense-Tracker/build/ 目录" >> $GITHUB_STEP_SUMMARY
-        echo "2. **侧载到设备**：" >> $GITHUB_STEP_SUMMARY
-        echo "   - 使用 [AltStore](https://altstore.io)" >> $GITHUB_STEP_SUMMARY
-        echo "   - 或使用 [Sideloadly](https://sideloadly.io)" >> $GITHUB_STEP_SUMMARY
-        echo "3. **注意事项**：" >> $GITHUB_STEP_SUMMARY
-        echo "   - 免费开发者证书构建的应用有效期为7天" >> $GITHUB_STEP_SUMMARY
-        echo "   - 需要定期重新构建和安装" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### 构建信息：" >> $GITHUB_STEP_SUMMARY
-        echo "- 分支: ${{ github.ref }}" >> $GITHUB_STEP_SUMMARY
-        echo "- 提交: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-        echo "- 运行器: macOS latest" >> $GITHUB_STEP_SUMMARY
-        echo "- 项目路径: iOS-Expense-Tracker/" >> $GITHUB_STEP_SUMMARY
+      - name: Build Project
+        working-directory: ./iOS-Expense-Tracker
+        run: xcodebuild clean build -project ExpenseTracker.xcodeproj -scheme ExpenseTracker -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO
