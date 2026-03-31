@@ -19,6 +19,7 @@ jobs:
       uses: actions/checkout@v4
       
     - name: Build for simulator
+      working-directory: ./iOS-Expense-Tracker
       run: |
         # 简单构建验证
         set -o pipefail
@@ -38,6 +39,7 @@ jobs:
           | xcpretty
         
     - name: Run tests if available
+      working-directory: ./iOS-Expense-Tracker
       run: |
         # 检查是否有测试目标
         if xcodebuild -project ExpenseTracker.xcodeproj -list | grep -q "Test"; then
@@ -115,7 +117,7 @@ jobs:
                 <h2>📖 Getting Started</h2>
                 <ol>
                     <li>Clone the repository</li>
-                    <li>Open <code>ExpenseTracker.xcodeproj</code> in Xcode</li>
+                    <li>Open <code>iOS-Expense-Tracker/ExpenseTracker.xcodeproj</code> in Xcode</li>
                     <li>Build and run on simulator or device</li>
                 </ol>
             </div>

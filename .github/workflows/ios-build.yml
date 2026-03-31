@@ -21,11 +21,13 @@ jobs:
         xcodebuild -version
         
     - name: Show project structure
+      working-directory: ./iOS-Expense-Tracker
       run: |
         ls -la
         find . -name "*.swift" | head -10
         
     - name: Build project
+      working-directory: ./iOS-Expense-Tracker
       run: |
         # 使用 xcodebuild 构建项目
         xcodebuild clean build \
@@ -35,6 +37,7 @@ jobs:
           CODE_SIGNING_ALLOWED=NO
         
     - name: Run tests (if any)
+      working-directory: ./iOS-Expense-Tracker
       run: |
         # 如果有测试，运行测试
         if [ -d "ExpenseTracker.xcodeproj" ]; then
@@ -68,6 +71,7 @@ jobs:
         sudo xcode-select -s /Applications/Xcode.app
         
     - name: Create development IPA
+      working-directory: ./iOS-Expense-Tracker
       run: |
         # 创建临时导出选项plist文件
         cat > ExportOptions.plist << EOF
@@ -104,5 +108,6 @@ jobs:
         echo "## Build Summary" >> $GITHUB_STEP_SUMMARY
         echo "- ✅ Project builds successfully" >> $GITHUB_STEP_SUMMARY
         echo "- 📱 Target: iOS Simulator" >> $GITHUB_STEP_SUMMARY
+        echo "- 📁 Project path: iOS-Expense-Tracker/" >> $GITHUB_STEP_SUMMARY
         echo "- 🚀 Next step: Configure code signing for IPA export" >> $GITHUB_STEP_SUMMARY
         echo "- 🔧 For side-loading: Use AltStore or similar tools" >> $GITHUB_STEP_SUMMARY

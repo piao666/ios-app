@@ -24,10 +24,12 @@ jobs:
         sudo gem install fastlane -NV || true
         
     - name: Create minimal project configuration
+      working-directory: ./iOS-Expense-Tracker
       run: |
         # 确保项目有基本的配置
         if [ ! -f "ExpenseTracker.xcodeproj/project.pbxproj" ]; then
           echo "Error: Xcode project not found!"
+          ls -la
           exit 1
         fi
         
@@ -99,8 +101,8 @@ jobs:
         EOF
         
     - name: Build project
+      working-directory: ./iOS-Expense-Tracker
       run: |
-        cd ${{ github.workspace }}
         ./build.sh
         
     - name: Upload build artifacts
@@ -109,7 +111,7 @@ jobs:
       with:
         name: expense-tracker-build
         path: |
-          build/
+          iOS-Expense-Tracker/build/
         retention-days: 30
         
     - name: Create build report
@@ -119,7 +121,7 @@ jobs:
         echo "### Build Status: ✅ Success" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### 下一步：" >> $GITHUB_STEP_SUMMARY
-        echo "1. **下载构建产物**：从 Artifacts 下载 build/ 目录" >> $GITHUB_STEP_SUMMARY
+        echo "1. **下载构建产物**：从 Artifacts 下载 iOS-Expense-Tracker/build/ 目录" >> $GITHUB_STEP_SUMMARY
         echo "2. **侧载到设备**：" >> $GITHUB_STEP_SUMMARY
         echo "   - 使用 [AltStore](https://altstore.io)" >> $GITHUB_STEP_SUMMARY
         echo "   - 或使用 [Sideloadly](https://sideloadly.io)" >> $GITHUB_STEP_SUMMARY
@@ -131,3 +133,4 @@ jobs:
         echo "- 分支: ${{ github.ref }}" >> $GITHUB_STEP_SUMMARY
         echo "- 提交: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
         echo "- 运行器: macOS latest" >> $GITHUB_STEP_SUMMARY
+        echo "- 项目路径: iOS-Expense-Tracker/" >> $GITHUB_STEP_SUMMARY
