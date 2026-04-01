@@ -62,12 +62,8 @@ struct ContentView: View {
 
             // 第三个Tab - 统计页面
             NavigationView {
-                VStack {
-                    Text("统计功能待实现")
-                        .font(.title)
-                        .foregroundColor(AppTheme.textSecondary)
-                }
-                .navigationTitle("统计")
+                ExpensePieChartView(transactions: transactions)
+                    .navigationTitle("统计")
             }
             .tabItem {
                 Label("统计", systemImage: "chart.pie")

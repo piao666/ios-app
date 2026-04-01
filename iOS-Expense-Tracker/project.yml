@@ -14,7 +14,11 @@ targets:
       - Theme.swift
       - LaunchScreen.storyboard
       - Info.plist
+    resources:
+      - path: Assets.xcassets
+        optional: true
     settings:
       base:
         INFOPLIST_FILE: Info.plist
         PRODUCT_BUNDLE_IDENTIFIER: com.yourname.ExpenseTracker
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
