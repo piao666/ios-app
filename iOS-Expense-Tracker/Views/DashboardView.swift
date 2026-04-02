@@ -195,7 +195,15 @@ struct DashboardView: View {
             .padding(.vertical, AppTheme.spacingLarge)
         }
         .onAppear {
+            // 初始化时同步系统主题
             isDarkMode = colorScheme == .dark
+        }
+        .onChange(of: colorScheme) { oldValue, newValue in
+            // 系统主题改变时，自动更新 isDarkMode（用户手动切换时不受影响）
+            // 仅在 isDarkMode 与 colorScheme 不一致且用户未手动切换时更新
+            if oldValue != newValue && isDarkMode == (oldValue == .dark) {
+                isDarkMode = newValue == .dark
+            }
         }
     }
 }
@@ -213,8 +221,9 @@ struct VoiceInputView: View {
     @State private var showingErrorAlert = false
     @State private var errorMessage = ""
 
-    private let audioEngine = AVAudioEngine()
-    private let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "zh-CN"))
+    // 延迟初始化音频引擎和语音识别器，避免内存泄漏
+    @State private var audioEngine: AVAudioEngine?
+    @State private var speechRecognizer: SFSpeechRecognizer?
 
     var body: some View {
         VStack(spacing: AppTheme.spacingXLarge) {
@@ -280,6 +289,17 @@ struct VoiceInputView: View {
 
     private func requestPermissionsAndStart() {
         recognizedText = ""
+
+        // 延迟初始化语音识别器，检查设备是否支持
+        if speechRecognizer == nil {
+            speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "zh-CN"))
+        }
+
+        guard let speechRecognizer = speechRecognizer else {
+            showError("您的设备不支持中文语音识别")
+            return
+        }
+
         SFSpeechRecognizer.requestAuthorization { authStatus in
             DispatchQueue.main.async {
                 if authStatus == .authorized {
@@ -294,7 +314,16 @@ struct VoiceInputView: View {
     }
 
     private func startRecording() {
-        if audioEngine.isRunning { stopRecording(); return }
+        // 延迟初始化音频引擎，首次需要时才创建
+        if audioEngine == nil {
+            audioEngine = AVAudioEngine()
+        }
+
+        guard let audioEngine = audioEngine, !audioEngine.isRunning else {
+            if audioEngine?.isRunning == true { stopRecording() }
+            return
+        }
+
         do {
             let audioSession = AVAudioSession.sharedInstance()
             try audioSession.setCategory(.record, mode: .measurement, options: .duckOthers)
@@ -307,7 +336,7 @@ struct VoiceInputView: View {
 
         let inputNode = audioEngine.inputNode
         let recordingFormat = inputNode.outputFormat(forBus: 0)
-        
+
         inputNode.removeTap(onBus: 0)
         inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { (buffer, _) in
             self.recognitionRequest?.append(buffer)
@@ -319,15 +348,23 @@ struct VoiceInputView: View {
             isRecording = true
         } catch { showError("音频引擎启动失败"); return }
 
-        recognitionTask = speechRecognizer?.recognitionTask(with: recognitionRequest) { result, error in
+        guard let speechRecognizer = speechRecognizer else {
+            showError("语音识别器不可用")
+            return
+        }
+
+        recognitionTask = speechRecognizer.recognitionTask(with: recognitionRequest) { result, error in
             if let result = result { self.recognizedText = result.bestTranscription.formattedString }
-            if error != nil { self.stopRecording() }
+            if error != nil {
+                self.showError("语音识别出错，请重试")
+                self.stopRecording()
+            }
         }
     }
 
     private func stopRecording() {
         isRecording = false
-        if audioEngine.isRunning {
+        if let audioEngine = audioEngine, audioEngine.isRunning {
             audioEngine.stop()
             audioEngine.inputNode.removeTap(onBus: 0)
             recognitionRequest?.endAudio()
@@ -335,7 +372,7 @@ struct VoiceInputView: View {
         recognitionTask?.cancel()
         recognitionTask = nil
         recognitionRequest = nil
-        
+
         if !recognizedText.isEmpty { saveVoiceTransaction(text: recognizedText) }
     }
     
@@ -398,12 +435,11 @@ struct TextInputView: View {
             return
         }
 
-        // 修正：适配 S3 增强版模型，移除 title 参数，添加 date 参数
         let transaction = Transaction(
-            amount: amountValue, 
-            date: Date(), 
+            amount: amountValue,
+            date: Date(),
             note: note.isEmpty ? nil : note,
-            type: .expense, 
+            type: .expense,
             category: selectedCategory ?? categories.first!
         )
 
@@ -441,6 +477,12 @@ struct TextInputView: View {
                     .frame(maxWidth: .infinity).frame(height: 44).background(themeColors.backgroundSecondary)
                     .cornerRadius(AppTheme.cornerRadiusMedium)
                     .overlay(RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium).stroke(themeColors.borderColor, lineWidth: 1))
+                }
+                .onAppear {
+                    // 初始化时预设为第一个分类，改善用户体验
+                    if selectedCategory == nil && !categories.isEmpty {
+                        selectedCategory = categories.first
+                    }
                 }
 
                 VStack(alignment: .leading, spacing: 6) {

@@ -17,6 +17,8 @@ targets:
     resources:
       - path: Assets.xcassets
         optional: true
+    dependencies:
+      - framework: Charts
     settings:
       base:
         INFOPLIST_FILE: Info.plist
