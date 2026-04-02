@@ -532,13 +532,11 @@ struct TransactionRowItem: View {
                     .foregroundColor(themeColors.textPrimary)
                     .lineLimit(1)
 
-                if let category = transaction.category {
-                    HStack(spacing: 4) {
-                        Image(systemName: category.icon).font(.system(size: 12))
-                        Text(category.name).font(.system(size: AppTheme.fontSizeSmall))
-                    }
-                    .foregroundColor(category.color)
+                HStack(spacing: 4) {
+                    Image(systemName: transaction.category.icon).font(.system(size: 12))
+                    Text(transaction.category.name).font(.system(size: AppTheme.fontSizeSmall))
                 }
+                .foregroundColor(transaction.category.color)
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 4) {
