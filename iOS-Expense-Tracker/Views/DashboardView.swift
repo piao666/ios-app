@@ -45,13 +45,11 @@ struct DashboardView: View {
 
     var body: some View {
         ZStack {
-            // 动态背景
             themeColors.backgroundPrimary.ignoresSafeArea()
 
             VStack(spacing: AppTheme.spacingLarge) {
                 // MARK: - 顶部卡片 + 主题切换按钮
                 VStack(spacing: AppTheme.spacingMedium) {
-                    // 月份 + 主题切换按钮
                     HStack {
                         VStack(alignment: .leading, spacing: AppTheme.spacingSmall) {
                             Text("概览")
@@ -65,7 +63,6 @@ struct DashboardView: View {
 
                         Spacer()
 
-                        // 主题切换按钮
                         Button(action: { withAnimation(.easeInOut(duration: 0.3)) { isDarkMode.toggle() } }) {
                             Image(systemName: isDarkMode ? "sun.max.fill" : "moon.fill")
                                 .font(.system(size: 18, weight: .semibold))
@@ -77,7 +74,6 @@ struct DashboardView: View {
                     }
                     .padding(AppTheme.spacingLarge)
 
-                    // 本月总支出卡片
                     VStack(spacing: AppTheme.spacingMedium) {
                         HStack {
                             VStack(alignment: .leading, spacing: AppTheme.spacingSmall) {
@@ -111,7 +107,6 @@ struct DashboardView: View {
 
                 // MARK: - 输入方式 Tab 选择
                 VStack(spacing: AppTheme.spacingMedium) {
-                    // Tab 切换器
                     HStack(spacing: 0) {
                         ForEach(InputTabType.allCases, id: \.self) { tab in
                             Button(action: { withAnimation(.easeInOut(duration: 0.2)) { selectedInputTab = tab } }) {
@@ -146,12 +141,10 @@ struct DashboardView: View {
                     }
                     .padding(AppTheme.spacingLarge)
 
-                    // Tab 内容
+                    // Tab 内容（这里修复了数据库重复注入的问题）
                     if selectedInputTab == .voice {
-                        // 语音输入视图
-                        VoiceInputView(themeColors: themeColors)
+                        VoiceInputView(categories: categories, themeColors: themeColors)
                     } else {
-                        // 文本输入视图
                         TextInputView(categories: categories, themeColors: themeColors)
                     }
                 }
@@ -178,7 +171,6 @@ struct DashboardView: View {
                     }
                     .padding(.horizontal, AppTheme.spacingLarge)
 
-                    // 最近交易列表
                     if recentTransactions.isEmpty {
                         VStack(spacing: AppTheme.spacingMedium) {
                             Image(systemName: "list.bullet")
@@ -199,7 +191,6 @@ struct DashboardView: View {
                         .padding(.horizontal, AppTheme.spacingLarge)
                     }
                 }
-
                 Spacer()
             }
             .padding(.vertical, AppTheme.spacingLarge)
@@ -210,12 +201,12 @@ struct DashboardView: View {
     }
 }
 
-// MARK: - 语音输入视图
+// MARK: - 语音输入视图 (已嵌入底层引擎)
 struct VoiceInputView: View {
+    let categories: [Category]
     let themeColors: ThemeColorSet
     @Environment(\.modelContext) private var modelContext
 
-    // 语音识别底层状态
     @State private var isRecording = false
     @State private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     @State private var recognitionTask: SFSpeechRecognitionTask?
@@ -229,16 +220,13 @@ struct VoiceInputView: View {
     var body: some View {
         VStack(spacing: AppTheme.spacingXLarge) {
             VStack(spacing: AppTheme.spacingLarge) {
-                // 麦克风按钮 (带手势和录音动画)
                 Button(action: {}) {
                     ZStack {
-                        // 发光背景圆圈 (录音时变红并呼吸)
                         Circle()
                             .fill(isRecording ? themeColors.errorColor.opacity(0.3) : themeColors.glowColor)
                             .frame(width: isRecording ? 180 : 160, height: isRecording ? 180 : 160)
                             .animation(isRecording ? .easeInOut(duration: 0.8).repeatForever(autoreverses: true) : .default, value: isRecording)
 
-                        // 按钮主体
                         Circle()
                             .fill(
                                 LinearGradient(
@@ -260,17 +248,10 @@ struct VoiceInputView: View {
                 .frame(maxWidth: .infinity, alignment: .center)
                 .gesture(
                     DragGesture(minimumDistance: 0)
-                        .onChanged { _ in
-                            if !isRecording {
-                                requestPermissionsAndStart()
-                            }
-                        }
-                        .onEnded { _ in
-                            stopRecording()
-                        }
+                        .onChanged { _ in if !isRecording { requestPermissionsAndStart() } }
+                        .onEnded { _ in stopRecording() }
                 )
 
-                // 提示文本区
                 VStack(spacing: 8) {
                     Text(isRecording ? "正在聆听..." : "长按说出你的账单")
                         .font(.system(size: AppTheme.fontSizeMedium, weight: .semibold))
@@ -291,17 +272,13 @@ struct VoiceInputView: View {
                 .frame(maxWidth: .infinity, alignment: .center)
             }
             .padding(AppTheme.spacingXLarge)
-
             Spacer()
         }
         .alert("权限或识别错误", isPresented: $showingErrorAlert) {
             Button("确定", role: .cancel) { }
-        } message: {
-            Text(errorMessage)
-        }
+        } message: { Text(errorMessage) }
     }
 
-    // MARK: - 语音核心逻辑
     private func requestPermissionsAndStart() {
         recognizedText = ""
         SFSpeechRecognizer.requestAuthorization { authStatus in
@@ -309,31 +286,21 @@ struct VoiceInputView: View {
                 if authStatus == .authorized {
                     AVAudioSession.sharedInstance().requestRecordPermission { granted in
                         DispatchQueue.main.async {
-                            if granted {
-                                startRecording()
-                            } else {
-                                showError("记账需要麦克风权限")
-                            }
+                            if granted { startRecording() } else { showError("需要麦克风权限") }
                         }
                     }
-                } else {
-                    showError("记账需要语音识别权限，请在手机设置中开启")
-                }
+                } else { showError("需要语音识别权限") }
             }
         }
     }
 
     private func startRecording() {
         if audioEngine.isRunning { stopRecording(); return }
-
         do {
             let audioSession = AVAudioSession.sharedInstance()
             try audioSession.setCategory(.record, mode: .measurement, options: .duckOthers)
             try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
-        } catch {
-            showError("无法启动麦克风模块")
-            return
-        }
+        } catch { showError("无法启动麦克风模块"); return }
 
         recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
         guard let recognitionRequest = recognitionRequest else { return }
@@ -342,7 +309,7 @@ struct VoiceInputView: View {
         let inputNode = audioEngine.inputNode
         let recordingFormat = inputNode.outputFormat(forBus: 0)
         
-        inputNode.removeTap(onBus: 0) // 防止重复 Tap 导致崩溃
+        inputNode.removeTap(onBus: 0)
         inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { (buffer, _) in
             self.recognitionRequest?.append(buffer)
         }
@@ -351,18 +318,11 @@ struct VoiceInputView: View {
         do {
             try audioEngine.start()
             isRecording = true
-        } catch {
-            showError("音频引擎启动失败")
-            return
-        }
+        } catch { showError("音频引擎启动失败"); return }
 
         recognitionTask = speechRecognizer?.recognitionTask(with: recognitionRequest) { result, error in
-            if let result = result {
-                self.recognizedText = result.bestTranscription.formattedString
-            }
-            if error != nil {
-                self.stopRecording()
-            }
+            if let result = result { self.recognizedText = result.bestTranscription.formattedString }
+            if error != nil { self.stopRecording() }
         }
     }
 
@@ -377,26 +337,15 @@ struct VoiceInputView: View {
         recognitionTask = nil
         recognitionRequest = nil
         
-        // 录音结束，自动保存到数据库
-        if !recognizedText.isEmpty {
-            saveVoiceTransaction(text: recognizedText)
-        }
+        if !recognizedText.isEmpty { saveVoiceTransaction(text: recognizedText) }
     }
     
-    // MARK: - 极简智能记账解析
     private func saveVoiceTransaction(text: String) {
         let amountValue = extractAmount(from: text) ?? 0.0
         if amountValue > 0 {
-            // 默认分类为餐饮
-            let category = Category.defaultCategories.first(where: { $0.name == "餐饮" }) ?? Category.defaultCategories[0]
-            
-            let transaction = Transaction(
-                amount: amountValue,
-                date: Date(),
-                note: text, // 原话作为备注
-                type: .expense,
-                category: category
-            )
+            // 直接从数据库现有的分类取，防止产生重复垃圾数据
+            let category = categories.first(where: { $0.name == "餐饮" }) ?? categories.first!
+            let transaction = Transaction(amount: amountValue, date: Date(), note: text, type: .expense, category: category)
             modelContext.insert(transaction)
             recognizedText = "✅ 记账成功：提取金额 ¥\(amountValue)"
         } else {
@@ -405,11 +354,10 @@ struct VoiceInputView: View {
     }
 
     private func extractAmount(from text: String) -> Double? {
-        // 利用正则提取话里的数字（支持小数）
         let regex = try? NSRegularExpression(pattern: "([0-9]+(?:\\.[0-9]+)?)", options: [])
         if let match = regex?.firstMatch(in: text, options: [], range: NSRange(text.startIndex..., in: text)),
            let range = Range(match.range(at: 1), in: text) {
-            return Double(text[range])
+            return Double(String(text[range]))
         }
         return nil
     }
@@ -423,7 +371,6 @@ struct VoiceInputView: View {
 // MARK: - 文本输入视图
 struct TextInputView: View {
     @Environment(\.modelContext) private var modelContext
-
     @State private var amount = ""
     @State private var selectedCategory: Category?
     @State private var note = ""
@@ -440,26 +387,18 @@ struct TextInputView: View {
     }
 
     func saveTransaction() {
-        // 验证金额
         guard let amountValue = Double(amount), amountValue > 0 else {
             errorMessage = "请输入有效的金额（必须大于0）"
             showingErrorAlert = true
             return
         }
 
-        // 创建交易记录
         let transaction = Transaction(
-            amount: amountValue,
-            title: "",  // 如果需要标题，可以添加新的 @State 变量
-            note: note.isEmpty ? nil : note,
-            type: .expense,
-            category: selectedCategory
+            amount: amountValue, title: "", note: note.isEmpty ? nil : note,
+            type: .expense, category: selectedCategory ?? categories.first!
         )
 
-        // 存入 SwiftData
         modelContext.insert(transaction)
-
-        // 清空输入框
         amount = ""
         selectedCategory = nil
         note = ""
@@ -468,123 +407,61 @@ struct TextInputView: View {
     var body: some View {
         VStack(spacing: AppTheme.spacingLarge) {
             VStack(spacing: AppTheme.spacingMedium) {
-                // 金额输入框
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("金额")
-                        .font(.system(size: AppTheme.fontSizeSmall, weight: .semibold))
-                        .foregroundColor(themeColors.textSecondary)
-
+                    Text("金额").font(.system(size: AppTheme.fontSizeSmall, weight: .semibold)).foregroundColor(themeColors.textSecondary)
                     TextField("0.00", text: $amount)
-                        .keyboardType(.decimalPad)
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundColor(themeColors.textPrimary)
-                        .padding(AppTheme.spacingMedium)
-                        .background(themeColors.backgroundSecondary)
-                        .cornerRadius(AppTheme.cornerRadiusMedium)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium)
-                                .stroke(themeColors.borderColor, lineWidth: 1)
-                        )
+                        .keyboardType(.decimalPad).font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(themeColors.textPrimary).padding(AppTheme.spacingMedium)
+                        .background(themeColors.backgroundSecondary).cornerRadius(AppTheme.cornerRadiusMedium)
+                        .overlay(RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium).stroke(themeColors.borderColor, lineWidth: 1))
                         .onChange(of: amount) { oldValue, newValue in
-                            // 只允许数字和小数点
                             let filtered = newValue.filter { $0.isNumber || $0 == "." }
                             let components = filtered.split(separator: ".", omittingEmptySubsequences: false)
-                            if components.count > 2 {
-                                amount = oldValue
-                            } else {
-                                amount = filtered
-                            }
+                            amount = components.count > 2 ? oldValue : filtered
                         }
                 }
 
-                // 分类选择
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("分类")
-                        .font(.system(size: AppTheme.fontSizeSmall, weight: .semibold))
-                        .foregroundColor(themeColors.textSecondary)
-
+                    Text("分类").font(.system(size: AppTheme.fontSizeSmall, weight: .semibold)).foregroundColor(themeColors.textSecondary)
                     Picker("分类", selection: $selectedCategory) {
                         Text("未分类").tag(nil as Category?)
                         ForEach(categories) { category in
-                            HStack {
-                                Image(systemName: category.icon)
-                                Text(category.name)
-                            }
-                            .tag(category as Category?)
+                            HStack { Image(systemName: category.icon); Text(category.name) }.tag(category as Category?)
                         }
                     }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 44)
-                    .background(themeColors.backgroundSecondary)
+                    .frame(maxWidth: .infinity).frame(height: 44).background(themeColors.backgroundSecondary)
                     .cornerRadius(AppTheme.cornerRadiusMedium)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium)
-                            .stroke(themeColors.borderColor, lineWidth: 1)
-                    )
+                    .overlay(RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium).stroke(themeColors.borderColor, lineWidth: 1))
                 }
 
-                // 备注输入框
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("备注（可选）")
-                        .font(.system(size: AppTheme.fontSizeSmall, weight: .semibold))
-                        .foregroundColor(themeColors.textSecondary)
-
+                    Text("备注（可选）").font(.system(size: AppTheme.fontSizeSmall, weight: .semibold)).foregroundColor(themeColors.textSecondary)
                     TextField("添加备注...", text: $note)
-                        .font(.system(size: AppTheme.fontSizeMedium))
-                        .foregroundColor(themeColors.textPrimary)
-                        .padding(AppTheme.spacingMedium)
-                        .frame(height: 44)
-                        .background(themeColors.backgroundSecondary)
+                        .font(.system(size: AppTheme.fontSizeMedium)).foregroundColor(themeColors.textPrimary)
+                        .padding(AppTheme.spacingMedium).frame(height: 44).background(themeColors.backgroundSecondary)
                         .cornerRadius(AppTheme.cornerRadiusMedium)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium)
-                                .stroke(themeColors.borderColor, lineWidth: 1)
-                        )
+                        .overlay(RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium).stroke(themeColors.borderColor, lineWidth: 1))
                 }
 
-                // 保存按钮
                 Button(action: saveTransaction) {
                     HStack(spacing: 8) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 16, weight: .semibold))
-                        Text("记一笔")
-                            .font(.system(size: AppTheme.fontSizeMedium, weight: .semibold))
+                        Image(systemName: "checkmark.circle.fill").font(.system(size: 16, weight: .semibold))
+                        Text("记一笔").font(.system(size: AppTheme.fontSizeMedium, weight: .semibold))
                     }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 48)
+                    .frame(maxWidth: .infinity).frame(height: 48)
                     .background(
                         isAmountValid
-                            ? LinearGradient(
-                                gradient: Gradient(colors: [
-                                    themeColors.primaryColor,
-                                    themeColors.accentColor
-                                ]),
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                            : LinearGradient(
-                                gradient: Gradient(colors: [
-                                    themeColors.borderColor,
-                                    themeColors.borderColor
-                                ]),
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
+                            ? LinearGradient(gradient: Gradient(colors: [themeColors.primaryColor, themeColors.accentColor]), startPoint: .topLeading, endPoint: .bottomTrailing)
+                            : LinearGradient(gradient: Gradient(colors: [themeColors.borderColor, themeColors.borderColor]), startPoint: .topLeading, endPoint: .bottomTrailing)
                     )
-                    .foregroundColor(.white)
-                    .cornerRadius(AppTheme.cornerRadiusMedium)
+                    .foregroundColor(.white).cornerRadius(AppTheme.cornerRadiusMedium)
                 }
                 .disabled(!isAmountValid)
             }
             .padding(AppTheme.spacingLarge)
-
             Spacer()
         }
-        .alert("输入错误", isPresented: $showingErrorAlert) {
-            Button("确定") { }
-        } message: {
-            Text(errorMessage)
-        }
+        .alert("输入错误", isPresented: $showingErrorAlert) { Button("确定") { } } message: { Text(errorMessage) }
     }
 }
 
@@ -593,75 +470,40 @@ struct TransactionRowItem: View {
     let transaction: Transaction
     let themeColors: ThemeColorSet
 
-    var typeColor: Color {
-        transaction.type == .income ? themeColors.successColor : themeColors.errorColor
-    }
+    var typeColor: Color { transaction.type == .income ? themeColors.successColor : themeColors.errorColor }
 
     var body: some View {
         HStack(spacing: AppTheme.spacingMedium) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(transaction.title)
+                Text(transaction.title.isEmpty ? (transaction.note ?? "未命名交易") : transaction.title)
                     .font(.system(size: AppTheme.fontSizeMedium, weight: .semibold))
                     .foregroundColor(themeColors.textPrimary)
+                    .lineLimit(1)
 
                 if let category = transaction.category {
                     HStack(spacing: 4) {
-                        Image(systemName: category.icon)
-                            .font(.system(size: 12))
-                        Text(category.name)
-                            .font(.system(size: AppTheme.fontSizeSmall))
+                        Image(systemName: category.icon).font(.system(size: 12))
+                        Text(category.name).font(.system(size: AppTheme.fontSizeSmall))
                     }
                     .foregroundColor(category.color)
                 }
             }
-
             Spacer()
-
             VStack(alignment: .trailing, spacing: 4) {
                 Text("\(transaction.type == .income ? "+" : "-")¥\(String(format: "%.2f", transaction.amount))")
-                    .font(.system(size: AppTheme.fontSizeMedium, weight: .semibold))
-                    .foregroundColor(typeColor)
-
+                    .font(.system(size: AppTheme.fontSizeMedium, weight: .semibold)).foregroundColor(typeColor)
                 Text(transaction.date, style: .date)
-                    .font(.system(size: AppTheme.fontSizeSmall))
-                    .foregroundColor(themeColors.textTertiary)
+                    .font(.system(size: AppTheme.fontSizeSmall)).foregroundColor(themeColors.textTertiary)
             }
         }
-        .padding(AppTheme.spacingMedium)
-        .background(themeColors.backgroundSecondary)
-        .cornerRadius(AppTheme.cornerRadiusMedium)
-        .overlay(
-            RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium)
-                .stroke(themeColors.borderColor, lineWidth: 0.5)
-        )
+        .padding(AppTheme.spacingMedium).background(themeColors.backgroundSecondary).cornerRadius(AppTheme.cornerRadiusMedium)
+        .overlay(RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium).stroke(themeColors.borderColor, lineWidth: 0.5))
     }
 }
 
 // MARK: - 输入类型枚举
 enum InputTabType: CaseIterable {
-    case voice
-    case text
-
-    var label: String {
-        switch self {
-        case .voice:
-            return "语音输入"
-        case .text:
-            return "文本输入"
-        }
-    }
-
-    var icon: String {
-        switch self {
-        case .voice:
-            return "mic"
-        case .text:
-            return "pencil"
-        }
-    }
-}
-
-#Preview {
-    DashboardView()
-        .modelContainer(for: [Transaction.self, Category.self], inMemory: true)
+    case voice, text
+    var label: String { self == .voice ? "语音输入" : "文本输入" }
+    var icon: String { self == .voice ? "mic" : "pencil" }
 }
