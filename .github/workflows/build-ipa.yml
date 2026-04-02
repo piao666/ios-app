@@ -12,6 +12,36 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup Python for icon generation
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install Pillow
+        run: pip install Pillow
+
+      - name: Generate App Icons
+        working-directory: ./iOS-Expense-Tracker
+        run: |
+          # 检查源 LOGO 是否存在
+          if [ -f "AppLogo-1024.png" ]; then
+            echo "📖 找到源 LOGO，生成所有尺寸..."
+            python3 generate_icons.py AppLogo-1024.png
+          else
+            echo "⚠️  源 LOGO 不存在，使用默认占位符"
+            mkdir -p Assets.xcassets/AppIcon.appiconset
+            # 创建简单的占位符 PNG
+            python3 - << 'EOF'
+import os
+from PIL import Image, ImageDraw
+size = 1024
+img = Image.new('RGB', (size, size), color=(200, 150, 200))
+img.save('AppLogo-1024.png', 'PNG')
+print("✅ 已创建默认占位符 LOGO")
+EOF
+            python3 generate_icons.py AppLogo-1024.png
+          fi
+
       - name: Generate Xcode Project with XcodeGen
         working-directory: ./iOS-Expense-Tracker
         run: |

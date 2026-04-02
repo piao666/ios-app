@@ -1,0 +1,27 @@
+{
+  "name": "ios-accounting-app-monitor",
+  "version": "1.0.0",
+  "description": "iOS记账应用实时监控系统",
+  "main": "monitor-start.js",
+  "scripts": {
+    "start": "node monitor-start.js",
+    "monitor": "node monitor-start.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "ios",
+    "monitor",
+    "swift",
+    "xcodebuild",
+    "swiftlint"
+  ],
+  "author": "OpenClaw Control UI",
+  "license": "MIT",
+  "dependencies": {
+    "chokidar": "^3.6.0",
+    "node-notifier": "^10.0.1"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
