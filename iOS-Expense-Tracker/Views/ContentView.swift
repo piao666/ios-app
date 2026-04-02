@@ -32,33 +32,12 @@ struct ContentView: View {
             }
             .tag(0)
 
-            // 第二个Tab - 交易列表
-            NavigationView {
-                List {
-                    ForEach(transactions) { transaction in
-                        TransactionRow(transaction: transaction)
-                    }
-                    .onDelete(perform: deleteTransactions)
+            // 第二个Tab - 交易列表 (已替换为全新重构的时间轴列表)
+            TransactionListView()
+                .tabItem {
+                    Label("交易", systemImage: "list.bullet")
                 }
-                .navigationTitle("交易列表")
-                .toolbar {
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        EditButton()
-                    }
-                    ToolbarItem {
-                        Button(action: { showingAddTransaction = true }) {
-                            Label("添加", systemImage: "plus")
-                        }
-                    }
-                }
-                .sheet(isPresented: $showingAddTransaction) {
-                    AddTransactionView()
-                }
-            }
-            .tabItem {
-                Label("交易", systemImage: "list.bullet")
-            }
-            .tag(1)
+                .tag(1)
 
             // 第三个Tab - 统计页面
             NavigationView {
