@@ -32,13 +32,13 @@ jobs:
             mkdir -p Assets.xcassets/AppIcon.appiconset
             # 创建简单的占位符 PNG
             python3 - << 'EOF'
-            import os
-            from PIL import Image, ImageDraw
-            size = 1024
-            img = Image.new('RGB', (size, size), color=(200, 150, 200))
-            img.save('AppLogo-1024.png', 'PNG')
-            print("✅ 已创建默认占位符 LOGO")
-            EOF
+          import os
+          from PIL import Image, ImageDraw
+          size = 1024
+          img = Image.new('RGB', (size, size), color=(200, 150, 200))
+          img.save('AppLogo-1024.png', 'PNG')
+          print("✅ 已创建默认占位符 LOGO")
+          EOF
             python3 generate_icons.py AppLogo-1024.png
           fi
 
