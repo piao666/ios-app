@@ -29,7 +29,7 @@ const CONFIG = {
   project: {
     name: 'iOS记账应用',
     path: process.cwd(), // 默认当前目录
-    scheme: '记账应用',
+    scheme: 'ExpenseTracker',
     target: 'iOS'
   },
   

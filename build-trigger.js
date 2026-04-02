@@ -100,7 +100,7 @@ class BuildTrigger {
       'xcodebuild',
       'clean',
       'build',
-      '-scheme "记账应用"',
+      '-scheme "ExpenseTracker"',
       '-destination "platform=iOS Simulator"',
       '-configuration "Debug"',
       'QUIET=YES'
