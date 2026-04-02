@@ -1,5 +1,7 @@
 import SwiftUI
 import SwiftData
+import Speech
+import AVFoundation
 
 struct DashboardView: View {
     @Query private var transactions: [Transaction]
@@ -211,25 +213,38 @@ struct DashboardView: View {
 // MARK: - 语音输入视图
 struct VoiceInputView: View {
     let themeColors: ThemeColorSet
+    @Environment(\.modelContext) private var modelContext
+
+    // 语音识别底层状态
+    @State private var isRecording = false
+    @State private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
+    @State private var recognitionTask: SFSpeechRecognitionTask?
+    @State private var recognizedText = ""
+    @State private var showingErrorAlert = false
+    @State private var errorMessage = ""
+
+    private let audioEngine = AVAudioEngine()
+    private let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "zh-CN"))
 
     var body: some View {
         VStack(spacing: AppTheme.spacingXLarge) {
             VStack(spacing: AppTheme.spacingLarge) {
-                // 麦克风按钮
+                // 麦克风按钮 (带手势和录音动画)
                 Button(action: {}) {
                     ZStack {
-                        // 发光背景圆圈
+                        // 发光背景圆圈 (录音时变红并呼吸)
                         Circle()
-                            .fill(themeColors.glowColor)
-                            .frame(width: 160, height: 160)
+                            .fill(isRecording ? themeColors.errorColor.opacity(0.3) : themeColors.glowColor)
+                            .frame(width: isRecording ? 180 : 160, height: isRecording ? 180 : 160)
+                            .animation(isRecording ? .easeInOut(duration: 0.8).repeatForever(autoreverses: true) : .default, value: isRecording)
 
-                        // 按钮圆圈
+                        // 按钮主体
                         Circle()
                             .fill(
                                 LinearGradient(
                                     gradient: Gradient(colors: [
-                                        themeColors.primaryColor,
-                                        themeColors.accentColor
+                                        isRecording ? themeColors.errorColor : themeColors.primaryColor,
+                                        isRecording ? themeColors.errorColor.opacity(0.8) : themeColors.accentColor
                                     ]),
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
@@ -237,23 +252,41 @@ struct VoiceInputView: View {
                             )
                             .frame(width: 120, height: 120)
 
-                        // 麦克风图标
-                        Image(systemName: "mic.fill")
+                        Image(systemName: isRecording ? "waveform" : "mic.fill")
                             .font(.system(size: 48))
                             .foregroundColor(.white)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .center)
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { _ in
+                            if !isRecording {
+                                requestPermissionsAndStart()
+                            }
+                        }
+                        .onEnded { _ in
+                            stopRecording()
+                        }
+                )
 
-                // 提示文本
-                VStack(spacing: 4) {
-                    Text("长按说出你的账单")
+                // 提示文本区
+                VStack(spacing: 8) {
+                    Text(isRecording ? "正在聆听..." : "长按说出你的账单")
                         .font(.system(size: AppTheme.fontSizeMedium, weight: .semibold))
-                        .foregroundColor(themeColors.textPrimary)
+                        .foregroundColor(isRecording ? themeColors.errorColor : themeColors.textPrimary)
 
-                    Text("例如：早上买咖啡 50 块")
-                        .font(.system(size: AppTheme.fontSizeSmall, weight: .regular))
-                        .foregroundColor(themeColors.textSecondary)
+                    if !recognizedText.isEmpty {
+                        Text(recognizedText)
+                            .font(.system(size: AppTheme.fontSizeLarge, weight: .bold))
+                            .foregroundColor(themeColors.primaryColor)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+                    } else {
+                        Text("例如：早上买咖啡 50 块")
+                            .font(.system(size: AppTheme.fontSizeSmall, weight: .regular))
+                            .foregroundColor(themeColors.textSecondary)
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .center)
             }
@@ -261,6 +294,129 @@ struct VoiceInputView: View {
 
             Spacer()
         }
+        .alert("权限或识别错误", isPresented: $showingErrorAlert) {
+            Button("确定", role: .cancel) { }
+        } message: {
+            Text(errorMessage)
+        }
+    }
+
+    // MARK: - 语音核心逻辑
+    private func requestPermissionsAndStart() {
+        recognizedText = ""
+        SFSpeechRecognizer.requestAuthorization { authStatus in
+            DispatchQueue.main.async {
+                if authStatus == .authorized {
+                    AVAudioSession.sharedInstance().requestRecordPermission { granted in
+                        DispatchQueue.main.async {
+                            if granted {
+                                startRecording()
+                            } else {
+                                showError("记账需要麦克风权限")
+                            }
+                        }
+                    }
+                } else {
+                    showError("记账需要语音识别权限，请在手机设置中开启")
+                }
+            }
+        }
+    }
+
+    private func startRecording() {
+        if audioEngine.isRunning { stopRecording(); return }
+
+        do {
+            let audioSession = AVAudioSession.sharedInstance()
+            try audioSession.setCategory(.record, mode: .measurement, options: .duckOthers)
+            try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
+        } catch {
+            showError("无法启动麦克风模块")
+            return
+        }
+
+        recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
+        guard let recognitionRequest = recognitionRequest else { return }
+        recognitionRequest.shouldReportPartialResults = true
+
+        let inputNode = audioEngine.inputNode
+        let recordingFormat = inputNode.outputFormat(forBus: 0)
+        
+        inputNode.removeTap(onBus: 0) // 防止重复 Tap 导致崩溃
+        inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { (buffer, _) in
+            self.recognitionRequest?.append(buffer)
+        }
+
+        audioEngine.prepare()
+        do {
+            try audioEngine.start()
+            isRecording = true
+        } catch {
+            showError("音频引擎启动失败")
+            return
+        }
+
+        recognitionTask = speechRecognizer?.recognitionTask(with: recognitionRequest) { result, error in
+            if let result = result {
+                self.recognizedText = result.bestTranscription.formattedString
+            }
+            if error != nil {
+                self.stopRecording()
+            }
+        }
+    }
+
+    private func stopRecording() {
+        isRecording = false
+        if audioEngine.isRunning {
+            audioEngine.stop()
+            audioEngine.inputNode.removeTap(onBus: 0)
+            recognitionRequest?.endAudio()
+        }
+        recognitionTask?.cancel()
+        recognitionTask = nil
+        recognitionRequest = nil
+        
+        // 录音结束，自动保存到数据库
+        if !recognizedText.isEmpty {
+            saveVoiceTransaction(text: recognizedText)
+        }
+    }
+    
+    // MARK: - 极简智能记账解析
+    private func saveVoiceTransaction(text: String) {
+        let amountValue = extractAmount(from: text) ?? 0.0
+        if amountValue > 0 {
+            // 默认分类为餐饮
+            let category = Category.defaultCategories.first(where: { $0.name == "餐饮" }) ?? Category.defaultCategories[0]
+            
+            let transaction = Transaction(
+                amount: amountValue,
+                date: Date(),
+                note: text, // 原话作为备注
+                type: .expense,
+                category: category
+            )
+            modelContext.insert(transaction)
+            recognizedText = "✅ 记账成功：提取金额 ¥\(amountValue)"
+        } else {
+            recognizedText = "⚠️ 未听到明确金额：\(text)"
+        }
+    }
+
+    private func extractAmount(from text: String) -> Double? {
+        // 利用正则提取话里的数字（支持小数）
+        let regex = try? NSRegularExpression(pattern: "([0-9]+(?:\\.[0-9]+)?)", options: [])
+        if let match = regex?.firstMatch(in: text, options: [], range: NSRange(text.startIndex..., in: text)),
+           let range = Range(match.range(at: 1), in: text) {
+            return Double(text[range])
+        }
+        return nil
+    }
+
+    private func showError(_ msg: String) {
+        self.errorMessage = msg
+        self.showingErrorAlert = true
     }
 }
 
