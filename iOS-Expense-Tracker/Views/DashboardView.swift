@@ -455,7 +455,7 @@ struct TransactionRowItem: View {
                         Text(category.name)
                             .font(.system(size: AppTheme.fontSizeSmall))
                     }
-                    .foregroundColor(Color(hex: category.color))
+                    .foregroundColor(category.color)
                 }
             }
 
