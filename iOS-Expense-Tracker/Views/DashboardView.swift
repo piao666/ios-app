@@ -141,7 +141,6 @@ struct DashboardView: View {
                     }
                     .padding(AppTheme.spacingLarge)
 
-                    // Tab 内容（这里修复了数据库重复注入的问题）
                     if selectedInputTab == .voice {
                         VoiceInputView(categories: categories, themeColors: themeColors)
                     } else {
@@ -201,7 +200,7 @@ struct DashboardView: View {
     }
 }
 
-// MARK: - 语音输入视图 (已嵌入底层引擎)
+// MARK: - 语音输入视图
 struct VoiceInputView: View {
     let categories: [Category]
     let themeColors: ThemeColorSet
@@ -343,9 +342,15 @@ struct VoiceInputView: View {
     private func saveVoiceTransaction(text: String) {
         let amountValue = extractAmount(from: text) ?? 0.0
         if amountValue > 0 {
-            // 直接从数据库现有的分类取，防止产生重复垃圾数据
             let category = categories.first(where: { $0.name == "餐饮" }) ?? categories.first!
-            let transaction = Transaction(amount: amountValue, date: Date(), note: text, type: .expense, category: category)
+            // 修正：适配 S3 增强版模型，移除 title，确保有 date
+            let transaction = Transaction(
+                amount: amountValue, 
+                date: Date(), 
+                note: text, 
+                type: .expense, 
+                category: category
+            )
             modelContext.insert(transaction)
             recognizedText = "✅ 记账成功：提取金额 ¥\(amountValue)"
         } else {
@@ -393,9 +398,13 @@ struct TextInputView: View {
             return
         }
 
+        // 修正：适配 S3 增强版模型，移除 title 参数，添加 date 参数
         let transaction = Transaction(
-            amount: amountValue, title: "", note: note.isEmpty ? nil : note,
-            type: .expense, category: selectedCategory ?? categories.first!
+            amount: amountValue, 
+            date: Date(), 
+            note: note.isEmpty ? nil : note,
+            type: .expense, 
+            category: selectedCategory ?? categories.first!
         )
 
         modelContext.insert(transaction)
@@ -475,7 +484,8 @@ struct TransactionRowItem: View {
     var body: some View {
         HStack(spacing: AppTheme.spacingMedium) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(transaction.title.isEmpty ? (transaction.note ?? "未命名交易") : transaction.title)
+                // 修正：模型中已移除 title 字段，统一使用 note
+                Text(transaction.note ?? "未命名记录")
                     .font(.system(size: AppTheme.fontSizeMedium, weight: .semibold))
                     .foregroundColor(themeColors.textPrimary)
                     .lineLimit(1)

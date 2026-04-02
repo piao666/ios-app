@@ -11,7 +11,6 @@ struct ContentView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            // 第一个Tab - 仪表盘（数据概览页）
             NavigationView {
                 DashboardView()
                     .toolbar {
@@ -32,14 +31,12 @@ struct ContentView: View {
             }
             .tag(0)
 
-            // 第二个Tab - 交易列表 (已替换为全新重构的时间轴列表)
             TransactionListView()
                 .tabItem {
                     Label("交易", systemImage: "list.bullet")
                 }
                 .tag(1)
 
-            // 第三个Tab - 统计页面
             NavigationView {
                 ExpensePieChartView(transactions: transactions)
                     .navigationTitle("统计")
@@ -49,31 +46,8 @@ struct ContentView: View {
             }
             .tag(2)
 
-            // 第四个Tab - 设置页面
             NavigationView {
                 Form {
-                    Section("数据管理") {
-                        Button(action: { exportDataBackup() }) {
-                            HStack {
-                                Image(systemName: "square.and.arrow.up")
-                                    .foregroundColor(AppTheme.primaryColor)
-                                Text("导出数据备份")
-                                    .foregroundColor(AppTheme.textPrimary)
-                                Spacer()
-                            }
-                        }
-
-                        Button(action: { importDataBackup() }) {
-                            HStack {
-                                Image(systemName: "square.and.arrow.down")
-                                    .foregroundColor(AppTheme.primaryColor)
-                                Text("导入数据备份")
-                                    .foregroundColor(AppTheme.textPrimary)
-                                Spacer()
-                            }
-                        }
-                    }
-
                     Section("分类管理") {
                         ForEach(categories) { category in
                             HStack {
@@ -102,31 +76,12 @@ struct ContentView: View {
         }
         .tint(AppTheme.primaryColor)
         .onAppear {
-            // 初始化默认分类
             if categories.isEmpty {
                 for category in Category.defaultCategories {
                     modelContext.insert(category)
                 }
             }
         }
-    }
-
-    private func deleteTransactions(offsets: IndexSet) {
-        withAnimation {
-            for index in offsets {
-                modelContext.delete(transactions[index])
-            }
-        }
-    }
-
-    private func exportDataBackup() {
-        // TODO: 实现数据导出功能
-        print("📤 已触发数据导出功能，将支持 JSON/CSV 格式导出")
-    }
-
-    private func importDataBackup() {
-        // TODO: 实现数据导入功能
-        print("📥 已触发数据导入功能，将支持从备份文件还原数据")
     }
 }
 
@@ -140,15 +95,10 @@ struct TransactionRow: View {
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: AppTheme.spacingSmall) {
-                Text(transaction.title)
+                // 修复：模型中已移除 title，统一使用 note
+                Text(transaction.note ?? "未命名记录")
                     .font(.system(size: AppTheme.fontSizeLarge, weight: .semibold))
                     .foregroundColor(AppTheme.textPrimary)
-
-                if let note = transaction.note {
-                    Text(note)
-                        .font(.system(size: AppTheme.fontSizeSmall))
-                        .foregroundColor(AppTheme.textSecondary)
-                }
 
                 Text(transaction.date, style: .date)
                     .font(.system(size: AppTheme.fontSizeSmall))
@@ -175,7 +125,6 @@ struct AddTransactionView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var amount = ""
-    @State private var title = ""
     @State private var note = ""
     @State private var type: TransactionType = .expense
     @State private var selectedCategory: Category?
@@ -183,37 +132,19 @@ struct AddTransactionView: View {
     @State private var errorMessage = ""
     @Query private var categories: [Category]
 
-    // 验证金额输入是否有效
     var isAmountValid: Bool {
         guard !amount.isEmpty else { return false }
         guard let amountValue = Double(amount) else { return false }
         return amountValue > 0
     }
 
-    var isSaveButtonDisabled: Bool {
-        title.isEmpty || !isAmountValid
-    }
-
     var body: some View {
         NavigationView {
             Form {
                 Section("基本信息") {
-                    TextField("金额（必填）", text: $amount)
+                    TextField("金额", text: $amount)
                         .keyboardType(.decimalPad)
-                        .onChange(of: amount) { oldValue, newValue in
-                            // 只允许数字和小数点
-                            let filtered = newValue.filter { $0.isNumber || $0 == "." }
-                            // 确保只有一个小数点
-                            let components = filtered.split(separator: ".", omittingEmptySubsequences: false)
-                            if components.count > 2 {
-                                amount = oldValue
-                            } else {
-                                amount = filtered
-                            }
-                        }
-
-                    TextField("标题（必填）", text: $title)
-                    TextField("备注（可选）", text: $note)
+                    TextField("备注", text: $note)
                 }
 
                 Section("类型") {
@@ -239,59 +170,28 @@ struct AddTransactionView: View {
                     }
                 }
             }
-            .navigationTitle("添加交易")
+            .navigationTitle("添加记录")
             .navigationBarItems(
                 leading: Button("取消") { dismiss() },
                 trailing: Button("保存") { validateAndSave() }
-                    .disabled(isSaveButtonDisabled)
+                    .disabled(!isAmountValid)
             )
-            .alert("输入验证失败", isPresented: $showingErrorAlert) {
-                Button("确定") { }
-            } message: {
-                Text(errorMessage)
-            }
         }
     }
 
     private func validateAndSave() {
-        // 验证标题
-        if title.trimmingCharacters(in: .whitespaces).isEmpty {
-            errorMessage = "请输入交易标题"
-            showingErrorAlert = true
-            return
-        }
-
-        // 验证金额
-        guard let amountValue = Double(amount) else {
-            errorMessage = "金额必须是有效的数字"
-            showingErrorAlert = true
-            return
-        }
-
-        if amountValue <= 0 {
-            errorMessage = "金额必须大于 0"
-            showingErrorAlert = true
-            return
-        }
-
-        saveTransaction(amount: amountValue)
-    }
-
-    private func saveTransaction(amount: Double) {
+        guard let amountValue = Double(amount) else { return }
+        
+        // 修复：适配增强型初始化构造器
         let transaction = Transaction(
-            amount: amount,
-            title: title,
+            amount: amountValue,
+            date: Date(),
             note: note.isEmpty ? nil : note,
             type: type,
-            category: selectedCategory
+            category: selectedCategory ?? categories.first!
         )
 
         modelContext.insert(transaction)
         dismiss()
     }
-}
-
-#Preview {
-    ContentView()
-        .modelContainer(for: [Transaction.self, Category.self], inMemory: true)
 }

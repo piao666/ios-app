@@ -45,15 +45,13 @@ struct ExpensePieChartView: View {
                 .cornerRadius(AppTheme.cornerRadiusLarge)
             } else {
                 VStack(spacing: AppTheme.spacingMedium) {
-                    // 饼状图
                     Chart(expenseByCategory) { item in
                         SectorMark(angle: .value("金额", item.amount))
-                            .foregroundStyle(Color(hex: item.category?.color ?? "#007AFF"))
+                            .foregroundStyle(item.category?.color ?? .blue) // 使用增强模型的 color 计算属性
                             .opacity(0.85)
                     }
                     .frame(height: 200)
 
-                    // 图例
                     VStack(spacing: AppTheme.spacingSmall) {
                         ForEach(expenseByCategory, id: \.id) { item in
                             HStack(spacing: AppTheme.spacingMedium) {
@@ -61,7 +59,7 @@ struct ExpensePieChartView: View {
                                     if let category = item.category {
                                         Image(systemName: category.icon)
                                             .font(.system(size: 14, weight: .semibold))
-                                            .foregroundColor(Color(hex: category.color))
+                                            .foregroundColor(category.color)
                                             .frame(width: 24)
                                         Text(category.name)
                                             .font(.system(size: AppTheme.fontSizeSmall, weight: .medium))
@@ -103,17 +101,18 @@ struct CategoryExpense: Identifiable {
     let transactionCount: Int
 }
 
-#Preview {
+#Preview("分类图表 - Mock数据") {
     VStack {
+        // 修复：适配增强型初始化构造器
         ExpensePieChartView(transactions: [
-            Transaction(amount: 120.50, title: "午餐", type: .expense, 
-                       category: Category(name: "餐饮", icon: "fork.knife", color: "#FF9500")),
-            Transaction(amount: 45.00, title: "公交", type: .expense, 
-                       category: Category(name: "交通", icon: "car", color: "#5856D6")),
-            Transaction(amount: 200.00, title: "衣服", type: .expense, 
-                       category: Category(name: "购物", icon: "bag", color: "#FF2D55")),
-            Transaction(amount: 80.00, title: "电影", type: .expense, 
-                       category: Category(name: "娱乐", icon: "film", color: "#AF52DE")),
+            Transaction(amount: 120.50, date: .now, note: "午餐", type: .expense, 
+                       category: Category(name: "餐饮", icon: "fork.knife", colorHex: "FF9500", type: .expense)),
+            Transaction(amount: 45.00, date: .now, note: "公交", type: .expense, 
+                       category: Category(name: "交通", icon: "car", colorHex: "5856D6", type: .expense)),
+            Transaction(amount: 200.00, date: .now, note: "衣服", type: .expense, 
+                       category: Category(name: "购物", icon: "bag", colorHex: "FF2D55", type: .expense)),
+            Transaction(amount: 80.00, date: .now, note: "电影", type: .expense, 
+                       category: Category(name: "娱乐", icon: "film", colorHex: "AF52DE", type: .expense)),
         ])
         .padding()
         Spacer()
