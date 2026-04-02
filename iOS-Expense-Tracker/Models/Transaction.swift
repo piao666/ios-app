@@ -145,6 +145,17 @@ class Category {
     var color: Color {
         Color(hex: colorHex) ?? .blue
     }
+// 兼容旧版的默认分类数据
+    static let defaultCategories: [Category] = [
+        Category(name: "餐饮", icon: "fork.knife", colorHex: "FF9500", type: .expense, sortOrder: 0),
+        Category(name: "交通", icon: "car", colorHex: "5856D6", type: .expense, sortOrder: 1),
+        Category(name: "购物", icon: "bag", colorHex: "FF2D55", type: .expense, sortOrder: 2),
+        Category(name: "娱乐", icon: "film", colorHex: "AF52DE", type: .expense, sortOrder: 3),
+        Category(name: "住房", icon: "house", colorHex: "34C759", type: .expense, sortOrder: 4),
+        Category(name: "医疗", icon: "heart", colorHex: "FF3B30", type: .expense, sortOrder: 5),
+        Category(name: "教育", icon: "book", colorHex: "5AC8FA", type: .expense, sortOrder: 6),
+        Category(name: "收入", icon: "dollarsign.circle", colorHex: "4CD964", type: .income, sortOrder: 7)
+    ]
 }
 
 // MARK: - 颜色扩展
