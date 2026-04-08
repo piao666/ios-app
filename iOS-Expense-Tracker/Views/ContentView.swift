@@ -47,27 +47,7 @@ struct ContentView: View {
             .tag(2)
 
             NavigationView {
-                Form {
-                    Section("分类管理") {
-                        ForEach(categories) { category in
-                            HStack {
-                                Image(systemName: category.icon)
-                                    .foregroundColor(category.color)
-                                Text(category.name)
-                            }
-                        }
-                    }
-
-                    Section("关于") {
-                        HStack {
-                            Text("版本")
-                            Spacer()
-                            Text("1.0.0")
-                                .foregroundColor(AppTheme.textSecondary)
-                        }
-                    }
-                }
-                .navigationTitle("设置")
+                SettingsView()
             }
             .tabItem {
                 Label("设置", systemImage: "gear")
@@ -76,9 +56,19 @@ struct ContentView: View {
         }
         .tint(AppTheme.primaryColor)
         .onAppear {
+            // 1. 初始化默认分类
             if categories.isEmpty {
                 for category in Category.defaultCategories {
                     modelContext.insert(category)
+                }
+            }
+            
+            // 2. 🚨 海总 UAT 真机测试专用后门：如果发现数据库是空的，强制注入 12 条高保真时间轴数据
+            if transactions.isEmpty {
+                print("正在向真机环境注入 S3 高保真测试数据...")
+                let mockData = Transaction.generateMockData()
+                for transaction in mockData {
+                    modelContext.insert(transaction)
                 }
             }
         }
@@ -176,19 +166,30 @@ struct AddTransactionView: View {
                 trailing: Button("保存") { validateAndSave() }
                     .disabled(!isAmountValid)
             )
+            .alert("输入错误", isPresented: $showingErrorAlert) {
+                Button("确定") { }
+            } message: {
+                Text(errorMessage)
+            }
         }
     }
 
     private func validateAndSave() {
         guard let amountValue = Double(amount) else { return }
-        
+
+        guard let category = selectedCategory ?? categories.first else {
+            errorMessage = "分类信息不完整，无法保存"
+            showingErrorAlert = true
+            return
+        }
+
         // 修复：适配增强型初始化构造器
         let transaction = Transaction(
             amount: amountValue,
             date: Date(),
             note: note.isEmpty ? nil : note,
             type: type,
-            category: selectedCategory ?? categories.first!
+            category: category
         )
 
         modelContext.insert(transaction)

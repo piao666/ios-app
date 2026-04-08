@@ -97,14 +97,14 @@ class Transaction {
 enum TransactionType: String, Codable, CaseIterable {
     case expense = "支出"
     case income = "收入"
-    
+
     var color: Color {
         switch self {
         case .expense: return .red
         case .income: return .green
         }
     }
-    
+
     var icon: String {
         switch self {
         case .expense: return "arrow.down.circle.fill"

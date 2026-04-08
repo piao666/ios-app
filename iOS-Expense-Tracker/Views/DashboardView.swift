@@ -23,10 +23,9 @@ struct DashboardView: View {
     }
 
     var recentTransactions: [Transaction] {
-        currentMonthTransactions
+        Array(currentMonthTransactions
             .sorted { $0.date > $1.date }
-            .prefix(5)
-            .reversed()
+            .prefix(5))
     }
 
     var totalExpense: Double {
@@ -47,7 +46,8 @@ struct DashboardView: View {
         ZStack {
             themeColors.backgroundPrimary.ignoresSafeArea()
 
-            VStack(spacing: AppTheme.spacingLarge) {
+            ScrollView {
+                VStack(spacing: AppTheme.spacingLarge) {
                 // MARK: - 顶部卡片 + 主题切换按钮
                 VStack(spacing: AppTheme.spacingMedium) {
                     HStack {
@@ -193,7 +193,7 @@ struct DashboardView: View {
                 Spacer()
             }
             .padding(.vertical, AppTheme.spacingLarge)
-        }
+            }
         .onAppear {
             // 初始化时同步系统主题
             isDarkMode = colorScheme == .dark
@@ -379,13 +379,16 @@ struct VoiceInputView: View {
     private func saveVoiceTransaction(text: String) {
         let amountValue = extractAmount(from: text) ?? 0.0
         if amountValue > 0 {
-            let category = categories.first(where: { $0.name == "餐饮" }) ?? categories.first!
+            guard let category = categories.first(where: { $0.name == "餐饮" }) ?? categories.first else {
+                showError("无法保存：分类信息不完整")
+                return
+            }
             // 修正：适配 S3 增强版模型，移除 title，确保有 date
             let transaction = Transaction(
-                amount: amountValue, 
-                date: Date(), 
-                note: text, 
-                type: .expense, 
+                amount: amountValue,
+                date: Date(),
+                note: text,
+                type: .expense,
                 category: category
             )
             modelContext.insert(transaction)
@@ -435,12 +438,18 @@ struct TextInputView: View {
             return
         }
 
+        guard let category = selectedCategory ?? categories.first else {
+            errorMessage = "分类信息不完整，无法保存"
+            showingErrorAlert = true
+            return
+        }
+
         let transaction = Transaction(
             amount: amountValue,
             date: Date(),
             note: note.isEmpty ? nil : note,
             type: .expense,
-            category: selectedCategory ?? categories.first!
+            category: category
         )
 
         modelContext.insert(transaction)
