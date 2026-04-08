@@ -193,7 +193,8 @@ struct DashboardView: View {
                 Spacer()
             }
             .padding(.vertical, AppTheme.spacingLarge)
-            }
+        }
+        }
         .onAppear {
             // 初始化时同步系统主题
             isDarkMode = colorScheme == .dark
