@@ -1,24 +1,30 @@
 import SwiftUI
+import SwiftData
 
 struct SettingsView: View {
-    // 假设 Category 已经在其他地方定义，这里用假数据测试 UI
-    @State private var categories: [Category] = [] 
+    // 接入真实的数据库查询，并按 sortOrder 排序
+    @Query(sort: \Category.sortOrder) private var categories: [Category]
+    @Environment(\.modelContext) private var modelContext
 
     var body: some View {
         NavigationView {
             List {
                 Section {
-                    ForEach(categories, id: \.self) { category in
+                    ForEach(categories) { category in
                         NavigationLink(destination: Text("编辑分类：\(category.name)")) {
-                            Text(category.name)
+                            HStack {
+                                Image(systemName: category.icon)
+                                    .foregroundColor(category.color)
+                                Text(category.name)
+                            }
                         }
-                        .buttonStyle(.plain)
                     }
                     .onDelete(perform: deleteCategory)
                     .onMove(perform: moveCategory)
                 } footer: {
                     Button(action: {
-                        // 执行添加新分类的逻辑
+                        // TODO: 弹出添加分类表单 (后续 S3 完善)
+                        print("点击了添加新分类")
                     }) {
                         Text("添加新分类")
                             .frame(maxWidth: .infinity, alignment: .center)
@@ -30,7 +36,6 @@ struct SettingsView: View {
             .navigationTitle("设置")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                // 必须加这个 EditButton，列表的排序功能才能生效
                 ToolbarItem(placement: .navigationBarTrailing) {
                     EditButton()
                 }
@@ -38,11 +43,22 @@ struct SettingsView: View {
         }
     }
 
+    // 真正的 SwiftData 删除逻辑
     private func deleteCategory(offsets: IndexSet) {
-        categories.remove(atOffsets: offsets)
+        for index in offsets {
+            let categoryToDelete = categories[index]
+            modelContext.delete(categoryToDelete)
+        }
     }
 
+    // 真正的 SwiftData 拖拽排序逻辑，通过更新 sortOrder 实现持久化
     private func moveCategory(from source: IndexSet, to destination: Int) {
-        categories.move(fromOffsets: source, toOffset: destination)
+        var revisedItems: [Category] = categories.map { $0 }
+        revisedItems.move(fromOffsets: source, toOffset: destination)
+        
+        // 遍历更新所有的 sortOrder 以保存到数据库
+        for reverseIndex in stride(from: revisedItems.count - 1, through: 0, by: -1) {
+            revisedItems[reverseIndex].sortOrder = reverseIndex
+        }
     }
 }

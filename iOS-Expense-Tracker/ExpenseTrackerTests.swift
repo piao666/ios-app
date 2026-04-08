@@ -1,5 +1,6 @@
 import XCTest
-@testable import ExpenseTracker  // 注：根据实际的 iOS 项目 Target 名称调整
+import SwiftData
+@testable import ExpenseTracker 
 
 final class ExpenseTrackerTests: XCTestCase {
 
@@ -33,60 +34,51 @@ final class ExpenseTrackerTests: XCTestCase {
     }
 
     func testDefaultCategoriesHaveValidColors() {
-        // 验证每个默认分类都有有效的 color
+        // 验证每个默认分类都有有效的 colorHex
         let defaultCategories = Category.defaultCategories
 
         for category in defaultCategories {
-            XCTAssertFalse(category.color.isEmpty, "分类 \(category.name) 应该有有效的 color")
-            // 验证颜色格式是否为 hex 格式
-            XCTAssertTrue(category.color.hasPrefix("#"), "分类 \(category.name) 的 color 应该以 # 开头")
+            XCTAssertFalse(category.colorHex.isEmpty, "分类 \(category.name) 应该有有效的 colorHex")
         }
     }
 
     // MARK: - Transaction Tests
 
     func testTransactionInitialization() {
-        // 验证 Transaction 初始化是否正确
+        // 构造一个有效的 Category 以满足 Transaction 的强类型校验
+        let mockCategory = Category(name: "测试分类", icon: "star.fill", colorHex: "FF0000", type: .expense)
+        
         let transaction = Transaction(
             amount: 99.99,
-            title: "测试交易",
+            date: Date(),
             note: "这是一条测试备注",
-            type: .expense
+            type: .expense,
+            category: mockCategory
         )
 
         XCTAssertEqual(transaction.amount, 99.99, "金额应该为 99.99")
-        XCTAssertEqual(transaction.title, "测试交易", "标题应该为 '测试交易'")
-        XCTAssertEqual(transaction.note, "这是一条测试备注", "备注应该为 '这是一条测试备注'")
+        XCTAssertNotNil(transaction.date, "交易应该有有效的时间")
+        XCTAssertEqual(transaction.note, "这是一条测试备注", "备注应该匹配")
         XCTAssertEqual(transaction.type, .expense, "交易类型应该为 expense")
+        XCTAssertEqual(transaction.category.name, "测试分类", "分类名称应该匹配")
         XCTAssertNotNil(transaction.id, "交易应该有一个有效的 UUID")
     }
 
     func testTransactionInitializationWithoutNote() {
-        // 验证没有 note 的 Transaction 初始化
+        // 验证没有 note 时的 Transaction 初始化
+        let mockCategory = Category(name: "兼职", icon: "briefcase.fill", colorHex: "00FF00", type: .income)
+        
         let transaction = Transaction(
             amount: 50.0,
-            title: "无备注交易",
-            type: .income
+            date: Date(),
+            type: .income,
+            category: mockCategory
         )
 
         XCTAssertEqual(transaction.amount, 50.0)
-        XCTAssertEqual(transaction.title, "无备注交易")
         XCTAssertNil(transaction.note, "没有提供 note 时，应该为 nil")
         XCTAssertEqual(transaction.type, .income)
-    }
-
-    func testTransactionWithCategory() {
-        // 验证带有分类的 Transaction 初始化
-        let category = Category(name: "餐饮", icon: "fork.knife", color: "#FF9500")
-        let transaction = Transaction(
-            amount: 120.50,
-            title: "午餐",
-            type: .expense,
-            category: category
-        )
-
-        XCTAssertNotNil(transaction.category, "交易应该有一个分类")
-        XCTAssertEqual(transaction.category?.name, "餐饮", "分类名称应该为 '餐饮'")
+        XCTAssertEqual(transaction.category.name, "兼职")
     }
 
     // MARK: - TransactionType Tests
