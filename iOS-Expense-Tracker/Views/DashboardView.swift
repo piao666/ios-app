@@ -207,6 +207,7 @@ struct DashboardView: View {
         }
     }
 }
+}
 
 // MARK: - 语音输入视图
 struct VoiceInputView: View {
