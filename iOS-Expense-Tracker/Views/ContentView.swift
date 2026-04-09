@@ -11,62 +11,51 @@ struct ContentView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            NavigationView {
-                DashboardView()
-                    .toolbar {
-                        ToolbarItem(placement: .navigationBarTrailing) {
-                            Button(action: { showingAddTransaction = true }) {
-                                Image(systemName: "plus.circle.fill")
-                                    .font(.system(size: 20))
-                                    .foregroundColor(AppTheme.primaryColor)
-                            }
-                        }
-                    }
-                    .sheet(isPresented: $showingAddTransaction) {
-                        AddTransactionView()
-                    }
-            }
-            .tabItem {
-                Label("仪表盘", systemImage: "square.grid.2x2")
-            }
-            .tag(0)
+            // MARK: - Tab 0：仪表盘（NavigationStack 由 DashboardView 自己管理）
+            DashboardView(showingAddTransaction: $showingAddTransaction)
+                .tabItem { Label("仪表盘", systemImage: "square.grid.2x2") }
+                .tag(0)
 
+            // MARK: - Tab 1：交易列表
             TransactionListView()
-                .tabItem {
-                    Label("交易", systemImage: "list.bullet")
-                }
+                .tabItem { Label("交易", systemImage: "list.bullet") }
                 .tag(1)
 
-            NavigationView {
-                ExpensePieChartView(transactions: transactions)
-                    .navigationTitle("统计")
+            // MARK: - Tab 2：统计
+            NavigationStack {
+                ScrollView {
+                    ExpensePieChartView(transactions: transactions)
+                        .padding()
+                }
+                .navigationTitle("统计")
             }
-            .tabItem {
-                Label("统计", systemImage: "chart.pie")
-            }
+            .tabItem { Label("统计", systemImage: "chart.pie") }
             .tag(2)
 
-            NavigationView {
+            // MARK: - Tab 3：设置
+            NavigationStack {
                 SettingsView()
             }
-            .tabItem {
-                Label("设置", systemImage: "gear")
-            }
+            .tabItem { Label("设置", systemImage: "gear") }
             .tag(3)
         }
         .tint(AppTheme.primaryColor)
+        .sheet(isPresented: $showingAddTransaction) {
+            AddTransactionView()
+        }
         .onAppear {
-            // 1. 初始化默认分类
+            // 1. 插入默认分类（只在首次安装 / 数据库为空时执行一次）
             if categories.isEmpty {
                 for category in Category.defaultCategories {
                     modelContext.insert(category)
                 }
+                // 确保分类写入后再查询，此处用 try? save 刷新上下文
+                try? modelContext.save()
             }
-            
-            // 2. 🚨 海总 UAT 真机测试专用后门：如果发现数据库是空的，强制注入 12 条高保真时间轴数据
-            if transactions.isEmpty {
-                print("正在向真机环境注入 S3 高保真测试数据...")
-                let mockData = Transaction.generateMockData()
+            // 2. 注入 Mock 测试数据（只在交易为空且分类已就绪时执行）
+            //    使用已存在的分类对象，根治设置页分类重复问题
+            if transactions.isEmpty && !categories.isEmpty {
+                let mockData = Transaction.generateMockData(using: Array(categories))
                 for transaction in mockData {
                     modelContext.insert(transaction)
                 }
@@ -75,6 +64,7 @@ struct ContentView: View {
     }
 }
 
+// MARK: - 交易行（供旧版列表复用）
 struct TransactionRow: View {
     let transaction: Transaction
 
@@ -85,23 +75,18 @@ struct TransactionRow: View {
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: AppTheme.spacingSmall) {
-                // 修复：模型中已移除 title，统一使用 note
                 Text(transaction.note ?? "未命名记录")
                     .font(.system(size: AppTheme.fontSizeLarge, weight: .semibold))
                     .foregroundColor(AppTheme.textPrimary)
-
                 Text(transaction.date, style: .date)
                     .font(.system(size: AppTheme.fontSizeSmall))
                     .foregroundColor(AppTheme.textTertiary)
             }
-
             Spacer()
-
             HStack(spacing: 2) {
                 Text(transaction.type == .income ? "+" : "-")
                     .font(.system(size: AppTheme.fontSizeLarge, weight: .semibold))
                     .foregroundColor(typeColor)
-
                 Text("¥\(transaction.amount, specifier: "%.2f")")
                     .font(.system(size: AppTheme.fontSizeLarge, weight: .semibold))
                     .foregroundColor(typeColor)
@@ -110,6 +95,7 @@ struct TransactionRow: View {
     }
 }
 
+// MARK: - 添加交易
 struct AddTransactionView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -123,39 +109,34 @@ struct AddTransactionView: View {
     @Query private var categories: [Category]
 
     var isAmountValid: Bool {
-        guard !amount.isEmpty else { return false }
-        guard let amountValue = Double(amount) else { return false }
-        return amountValue > 0
+        guard !amount.isEmpty, let v = Double(amount) else { return false }
+        return v > 0
     }
 
     var body: some View {
         NavigationView {
             Form {
                 Section("基本信息") {
-                    TextField("金额", text: $amount)
-                        .keyboardType(.decimalPad)
+                    TextField("金额", text: $amount).keyboardType(.decimalPad)
                     TextField("备注", text: $note)
                 }
-
                 Section("类型") {
                     Picker("类型", selection: $type) {
-                        ForEach(TransactionType.allCases, id: \.self) { type in
-                            Text(type.rawValue).tag(type)
+                        ForEach(TransactionType.allCases, id: \.self) { t in
+                            Text(t.rawValue).tag(t)
                         }
                     }
                     .pickerStyle(.segmented)
                 }
-
                 Section("分类") {
                     Picker("分类", selection: $selectedCategory) {
                         Text("无").tag(nil as Category?)
-                        ForEach(categories) { category in
+                        ForEach(categories) { cat in
                             HStack {
-                                Image(systemName: category.icon)
-                                    .foregroundColor(category.color)
-                                Text(category.name)
+                                Image(systemName: cat.icon).foregroundColor(cat.color)
+                                Text(cat.name)
                             }
-                            .tag(category as Category?)
+                            .tag(cat as Category?)
                         }
                     }
                 }
@@ -163,27 +144,21 @@ struct AddTransactionView: View {
             .navigationTitle("添加记录")
             .navigationBarItems(
                 leading: Button("取消") { dismiss() },
-                trailing: Button("保存") { validateAndSave() }
-                    .disabled(!isAmountValid)
+                trailing: Button("保存") { validateAndSave() }.disabled(!isAmountValid)
             )
             .alert("输入错误", isPresented: $showingErrorAlert) {
-                Button("确定") { }
-            } message: {
-                Text(errorMessage)
-            }
+                Button("确定") {}
+            } message: { Text(errorMessage) }
         }
     }
 
     private func validateAndSave() {
         guard let amountValue = Double(amount) else { return }
-
         guard let category = selectedCategory ?? categories.first else {
             errorMessage = "分类信息不完整，无法保存"
             showingErrorAlert = true
             return
         }
-
-        // 修复：适配增强型初始化构造器
         let transaction = Transaction(
             amount: amountValue,
             date: Date(),
@@ -191,7 +166,6 @@ struct AddTransactionView: View {
             type: type,
             category: category
         )
-
         modelContext.insert(transaction)
         dismiss()
     }

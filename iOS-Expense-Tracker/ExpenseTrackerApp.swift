@@ -3,29 +3,30 @@ import SwiftData
 
 @main
 struct ExpenseTrackerApp: App {
-    // 强制注册 S3 阶段的全新模型架构 (包含附件、PDF预留、搜索优化字段)
+    // MARK: - 全局主题状态（根节点注入，全 App 响应）
+    @StateObject private var themeSettings = ThemeSettings()
+
+    // MARK: - SwiftData 容器
     let sharedModelContainer: ModelContainer = {
         let schema = Schema([
             Transaction.self,
             Category.self
         ])
-        
-        // 核心配置：关闭纯内存模式确保数据落盘，但强依赖真机层面的旧包卸载
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-
         do {
             return try ModelContainer(for: schema, configurations: [modelConfiguration])
         } catch {
-            // 如果你没有卸载旧版本直接覆盖安装，这里会捕获致命的底层结构冲突
-            fatalError("海总，底层数据库容器加载致命失败（大概率是旧版数据库未清理导致结构冲突）：\(error)")
+            fatalError("数据库容器加载失败（可能是旧版数据库结构冲突，请卸载重装）：\(error)")
         }
     }()
 
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environmentObject(themeSettings)
+                // 根节点设置 preferredColorScheme，全 App 所有页面自动响应深色/浅色切换
+                .preferredColorScheme(themeSettings.isDarkMode ? .dark : .light)
         }
-        // 将全新的数据血脉注入整个 App 视图树
         .modelContainer(sharedModelContainer)
     }
 }

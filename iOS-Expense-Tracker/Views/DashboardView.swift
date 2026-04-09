@@ -6,19 +6,24 @@ import AVFoundation
 struct DashboardView: View {
     @Query private var transactions: [Transaction]
     @Query private var categories: [Category]
-    @Environment(\.colorScheme) var colorScheme
 
-    @State private var isDarkMode: Bool = false
+    // 全局主题状态（由 ExpenseTrackerApp 根节点注入）
+    @EnvironmentObject var themeSettings: ThemeSettings
+
     @State private var selectedInputTab: InputTabType = .voice
+
+    // 接收来自 ContentView 的加号按钮绑定（toolbar 统一管理）
+    @Binding var showingAddTransaction: Bool
 
     var currentMonthTransactions: [Transaction] {
         let now = Date()
         let calendar = Calendar.current
         let currentMonth = calendar.dateComponents([.month, .year], from: now)
-
-        return transactions.filter { transaction in
-            let transactionDate = calendar.dateComponents([.month, .year], from: transaction.date)
-            return transactionDate.month == currentMonth.month && transactionDate.year == currentMonth.year && transaction.type == .expense
+        return transactions.filter { t in
+            let td = calendar.dateComponents([.month, .year], from: t.date)
+            return td.month == currentMonth.month
+                && td.year == currentMonth.year
+                && t.type == .expense
         }
     }
 
@@ -34,179 +39,185 @@ struct DashboardView: View {
 
     var currentMonthString: String {
         let formatter = DateFormatter()
-        formatter.dateFormat = "YYYY年MM月"
+        formatter.dateFormat = "yyyy年MM月"
         return formatter.string(from: Date())
     }
 
     var themeColors: ThemeColorSet {
-        ThemeManager.getColorSet(isDark: isDarkMode)
+        ThemeManager.getColorSet(isDark: themeSettings.isDarkMode)
     }
 
     var body: some View {
-        ZStack {
-            themeColors.backgroundPrimary.ignoresSafeArea()
+        NavigationStack {
+            ZStack {
+                themeColors.backgroundPrimary.ignoresSafeArea()
 
-            ScrollView {
-                VStack(spacing: AppTheme.spacingLarge) {
-                // MARK: - 顶部卡片 + 主题切换按钮
-                VStack(spacing: AppTheme.spacingMedium) {
-                    HStack {
-                        VStack(alignment: .leading, spacing: AppTheme.spacingSmall) {
-                            Text("概览")
-                                .font(.system(size: AppTheme.fontSizeTitle, weight: .bold))
-                                .foregroundColor(themeColors.textPrimary)
+                ScrollView {
+                    VStack(spacing: AppTheme.spacingLarge) {
 
-                            Text(currentMonthString)
-                                .font(.system(size: AppTheme.fontSizeLarge, weight: .medium))
-                                .foregroundColor(themeColors.textSecondary)
-                        }
-
-                        Spacer()
-
-                        Button(action: { withAnimation(.easeInOut(duration: 0.3)) { isDarkMode.toggle() } }) {
-                            Image(systemName: isDarkMode ? "sun.max.fill" : "moon.fill")
-                                .font(.system(size: 18, weight: .semibold))
-                                .foregroundColor(themeColors.primaryColor)
-                                .frame(width: 44, height: 44)
-                                .background(themeColors.backgroundSecondary)
-                                .cornerRadius(AppTheme.cornerRadiusMedium)
-                        }
-                    }
-                    .padding(AppTheme.spacingLarge)
-
-                    VStack(spacing: AppTheme.spacingMedium) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: AppTheme.spacingSmall) {
-                                Text("本月总支出")
-                                    .font(.system(size: AppTheme.fontSizeMedium, weight: .medium))
-                                    .foregroundColor(themeColors.textSecondary)
-
-                                Text("¥\(String(format: "%.2f", totalExpense))")
-                                    .font(.system(size: 36, weight: .bold))
-                                    .foregroundColor(themeColors.primaryColor)
+                        // MARK: - 数据卡片
+                        VStack(spacing: AppTheme.spacingMedium) {
+                            HStack {
+                                VStack(alignment: .leading, spacing: AppTheme.spacingSmall) {
+                                    Text("概览")
+                                        .font(.system(size: AppTheme.fontSizeTitle, weight: .bold))
+                                        .foregroundColor(themeColors.textPrimary)
+                                    Text(currentMonthString)
+                                        .font(.system(size: AppTheme.fontSizeLarge, weight: .medium))
+                                        .foregroundColor(themeColors.textSecondary)
+                                }
+                                Spacer()
                             }
+                            .padding(.horizontal, AppTheme.spacingLarge)
+                            .padding(.top, AppTheme.spacingLarge)
 
-                            Spacer()
+                            VStack(spacing: AppTheme.spacingMedium) {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: AppTheme.spacingSmall) {
+                                        Text("本月总支出")
+                                            .font(.system(size: AppTheme.fontSizeMedium, weight: .medium))
+                                            .foregroundColor(themeColors.textSecondary)
+                                        Text("¥\(String(format: "%.2f", totalExpense))")
+                                            .font(.system(size: 36, weight: .bold))
+                                            .foregroundColor(themeColors.primaryColor)
+                                    }
+                                    Spacer()
+                                    VStack(alignment: .trailing, spacing: AppTheme.spacingSmall) {
+                                        Text("交易笔数")
+                                            .font(.system(size: AppTheme.fontSizeMedium, weight: .medium))
+                                            .foregroundColor(themeColors.textSecondary)
+                                        Text("\(currentMonthTransactions.count)")
+                                            .font(.system(size: 32, weight: .bold))
+                                            .foregroundColor(themeColors.textPrimary)
+                                    }
+                                }
+                                .padding(AppTheme.spacingLarge)
+                            }
+                            .background(themeColors.backgroundSecondary)
+                            .cornerRadius(AppTheme.cornerRadiusLarge)
+                            .padding(.horizontal, AppTheme.spacingLarge)
+                        }
 
-                            VStack(alignment: .trailing, spacing: AppTheme.spacingSmall) {
-                                Text("交易笔数")
-                                    .font(.system(size: AppTheme.fontSizeMedium, weight: .medium))
-                                    .foregroundColor(themeColors.textSecondary)
+                        // MARK: - 输入方式 Tab
+                        VStack(spacing: AppTheme.spacingMedium) {
+                            HStack(spacing: 0) {
+                                ForEach(InputTabType.allCases, id: \.self) { tab in
+                                    Button(action: {
+                                        withAnimation(.easeInOut(duration: 0.2)) { selectedInputTab = tab }
+                                    }) {
+                                        HStack(spacing: 6) {
+                                            Image(systemName: tab.icon)
+                                                .font(.system(size: 14, weight: .semibold))
+                                            Text(tab.label)
+                                                .font(.system(size: AppTheme.fontSizeMedium, weight: .semibold))
+                                        }
+                                        .frame(maxWidth: .infinity)
+                                        .frame(height: 44)
+                                        .background(
+                                            selectedInputTab == tab
+                                                ? LinearGradient(
+                                                    gradient: Gradient(colors: [
+                                                        themeColors.primaryColor.opacity(0.8),
+                                                        themeColors.accentColor.opacity(0.6)
+                                                    ]),
+                                                    startPoint: .topLeading,
+                                                    endPoint: .bottomTrailing
+                                                )
+                                                : LinearGradient(
+                                                    gradient: Gradient(colors: [
+                                                        themeColors.backgroundSecondary,
+                                                        themeColors.backgroundSecondary
+                                                    ]),
+                                                    startPoint: .topLeading,
+                                                    endPoint: .bottomTrailing
+                                                )
+                                        )
+                                        .foregroundColor(selectedInputTab == tab ? .white : themeColors.textSecondary)
+                                        .cornerRadius(AppTheme.cornerRadiusMedium)
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, AppTheme.spacingLarge)
 
-                                Text("\(currentMonthTransactions.count)")
-                                    .font(.system(size: 32, weight: .bold))
+                            if selectedInputTab == .voice {
+                                VoiceInputView(categories: categories, themeColors: themeColors)
+                            } else {
+                                TextInputView(categories: categories, themeColors: themeColors)
+                            }
+                        }
+
+                        // MARK: - 最近账单
+                        VStack(spacing: AppTheme.spacingMedium) {
+                            HStack {
+                                Text("最近账单")
+                                    .font(.system(size: AppTheme.fontSizeMedium, weight: .semibold))
                                     .foregroundColor(themeColors.textPrimary)
+                                Spacer()
+                                // 修复：跳转到真正的 TransactionListView
+                                NavigationLink(destination: TransactionListView()) {
+                                    HStack(spacing: 4) {
+                                        Text("查看全部")
+                                            .font(.system(size: AppTheme.fontSizeSmall, weight: .medium))
+                                        Image(systemName: "chevron.right")
+                                            .font(.system(size: 12, weight: .semibold))
+                                    }
+                                    .foregroundColor(themeColors.primaryColor)
+                                }
                             }
-                        }
-                        .padding(AppTheme.spacingLarge)
-                    }
-                    .background(themeColors.backgroundSecondary)
-                    .cornerRadius(AppTheme.cornerRadiusLarge)
-                    .padding(.horizontal, AppTheme.spacingLarge)
-                }
+                            .padding(.horizontal, AppTheme.spacingLarge)
 
-                // MARK: - 输入方式 Tab 选择
-                VStack(spacing: AppTheme.spacingMedium) {
-                    HStack(spacing: 0) {
-                        ForEach(InputTabType.allCases, id: \.self) { tab in
-                            Button(action: { withAnimation(.easeInOut(duration: 0.2)) { selectedInputTab = tab } }) {
-                                HStack(spacing: 6) {
-                                    Image(systemName: tab.icon)
-                                        .font(.system(size: 14, weight: .semibold))
-                                    Text(tab.label)
-                                        .font(.system(size: AppTheme.fontSizeMedium, weight: .semibold))
+                            if recentTransactions.isEmpty {
+                                VStack(spacing: AppTheme.spacingMedium) {
+                                    Image(systemName: "list.bullet")
+                                        .font(.system(size: 32))
+                                        .foregroundColor(themeColors.textTertiary)
+                                    Text("暂无账单")
+                                        .font(.system(size: AppTheme.fontSizeMedium, weight: .medium))
+                                        .foregroundColor(themeColors.textSecondary)
                                 }
                                 .frame(maxWidth: .infinity)
-                                .frame(height: 44)
-                                .background(
-                                    selectedInputTab == tab
-                                        ? LinearGradient(
-                                            gradient: Gradient(colors: [
-                                                themeColors.primaryColor.opacity(0.8),
-                                                themeColors.accentColor.opacity(0.6)
-                                            ]),
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        )
-                                        : LinearGradient(
-                                            gradient: Gradient(colors: [themeColors.backgroundSecondary, themeColors.backgroundSecondary]),
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        )
-                                )
-                                .foregroundColor(selectedInputTab == tab ? .white : themeColors.textSecondary)
-                                .cornerRadius(AppTheme.cornerRadiusMedium)
+                                .padding(AppTheme.spacingXLarge)
+                            } else {
+                                VStack(spacing: AppTheme.spacingSmall) {
+                                    ForEach(recentTransactions, id: \.id) { transaction in
+                                        TransactionRowItem(transaction: transaction, themeColors: themeColors)
+                                    }
+                                }
+                                .padding(.horizontal, AppTheme.spacingLarge)
                             }
                         }
-                    }
-                    .padding(AppTheme.spacingLarge)
 
-                    if selectedInputTab == .voice {
-                        VoiceInputView(categories: categories, themeColors: themeColors)
-                    } else {
-                        TextInputView(categories: categories, themeColors: themeColors)
+                        Spacer(minLength: AppTheme.spacingXLarge)
                     }
+                    .padding(.bottom, AppTheme.spacingLarge)
                 }
-                .padding(.horizontal, AppTheme.spacingLarge)
-
-                // MARK: - 最近账单列表
-                VStack(spacing: AppTheme.spacingMedium) {
-                    HStack {
-                        Text("最近账单")
-                            .font(.system(size: AppTheme.fontSizeMedium, weight: .semibold))
-                            .foregroundColor(themeColors.textPrimary)
-
-                        Spacer()
-
-                        NavigationLink(destination: Text("全部账单")) {
-                            HStack(spacing: 4) {
-                                Text("查看全部")
-                                    .font(.system(size: AppTheme.fontSizeSmall, weight: .medium))
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 12, weight: .semibold))
-                            }
-                            .foregroundColor(themeColors.primaryColor)
-                        }
-                    }
-                    .padding(.horizontal, AppTheme.spacingLarge)
-
-                    if recentTransactions.isEmpty {
-                        VStack(spacing: AppTheme.spacingMedium) {
-                            Image(systemName: "list.bullet")
-                                .font(.system(size: 32))
-                                .foregroundColor(themeColors.textTertiary)
-                            Text("暂无账单")
-                                .font(.system(size: AppTheme.fontSizeMedium, weight: .medium))
-                                .foregroundColor(themeColors.textSecondary)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(AppTheme.spacingXLarge)
-                    } else {
-                        VStack(spacing: AppTheme.spacingSmall) {
-                            ForEach(recentTransactions, id: \.id) { transaction in
-                                TransactionRowItem(transaction: transaction, themeColors: themeColors)
-                            }
-                        }
-                        .padding(.horizontal, AppTheme.spacingLarge)
-                    }
-                }
-                Spacer()
             }
-            .padding(.vertical, AppTheme.spacingLarge)
-        }
-        .onAppear {
-            // 初始化时同步系统主题
-            isDarkMode = colorScheme == .dark
-        }
-        .onChange(of: colorScheme) { oldValue, newValue in
-            // 系统主题改变时，自动更新 isDarkMode（用户手动切换时不受影响）
-            // 仅在 isDarkMode 与 colorScheme 不一致且用户未手动切换时更新
-            if oldValue != newValue && isDarkMode == (oldValue == .dark) {
-                isDarkMode = newValue == .dark
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                // 修复：两个按钮统一放在 toolbar，从左到右：主题切换 → 加号
+                ToolbarItemGroup(placement: .navigationBarTrailing) {
+                    // 深色/浅色模式切换（使用全局 ThemeSettings）
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            themeSettings.isDarkMode.toggle()
+                        }
+                    }) {
+                        Image(systemName: themeSettings.isDarkMode ? "sun.max.fill" : "moon.fill")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(themeColors.primaryColor)
+                    }
+
+                    // 新建账单
+                    Button(action: { showingAddTransaction = true }) {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.system(size: 20))
+                            .foregroundColor(themeColors.primaryColor)
+                    }
+                }
             }
         }
     }
-}
 }
 
 // MARK: - 语音输入视图
@@ -221,38 +232,45 @@ struct VoiceInputView: View {
     @State private var recognizedText = ""
     @State private var showingErrorAlert = false
     @State private var errorMessage = ""
-
-    // 延迟初始化音频引擎和语音识别器，避免内存泄漏
     @State private var audioEngine: AVAudioEngine?
     @State private var speechRecognizer: SFSpeechRecognizer?
 
     var body: some View {
         VStack(spacing: AppTheme.spacingXLarge) {
             VStack(spacing: AppTheme.spacingLarge) {
-                Button(action: {}) {
-                    ZStack {
-                        Circle()
-                            .fill(isRecording ? themeColors.errorColor.opacity(0.3) : themeColors.glowColor)
-                            .frame(width: isRecording ? 180 : 160, height: isRecording ? 180 : 160)
-                            .animation(isRecording ? .easeInOut(duration: 0.8).repeatForever(autoreverses: true) : .default, value: isRecording)
 
-                        Circle()
-                            .fill(
-                                LinearGradient(
-                                    gradient: Gradient(colors: [
-                                        isRecording ? themeColors.errorColor : themeColors.primaryColor,
-                                        isRecording ? themeColors.errorColor.opacity(0.8) : themeColors.accentColor
-                                    ]),
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
+                // 修复：移除空 Button 外壳，直接在 ZStack 上挂 DragGesture
+                // 原写法 Button(action:{}) 会吞掉 tap，导致长按手势失效
+                ZStack {
+                    Circle()
+                        .fill(isRecording ? themeColors.errorColor.opacity(0.3) : themeColors.glowColor)
+                        .frame(
+                            width: isRecording ? 180 : 160,
+                            height: isRecording ? 180 : 160
+                        )
+                        .animation(
+                            isRecording
+                                ? .easeInOut(duration: 0.8).repeatForever(autoreverses: true)
+                                : .default,
+                            value: isRecording
+                        )
+
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                gradient: Gradient(colors: [
+                                    isRecording ? themeColors.errorColor : themeColors.primaryColor,
+                                    isRecording ? themeColors.errorColor.opacity(0.8) : themeColors.accentColor
+                                ]),
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
                             )
-                            .frame(width: 120, height: 120)
+                        )
+                        .frame(width: 120, height: 120)
 
-                        Image(systemName: isRecording ? "waveform" : "mic.fill")
-                            .font(.system(size: 48))
-                            .foregroundColor(.white)
-                    }
+                    Image(systemName: isRecording ? "waveform" : "mic.fill")
+                        .font(.system(size: 48))
+                        .foregroundColor(.white)
                 }
                 .frame(maxWidth: .infinity, alignment: .center)
                 .gesture(
@@ -284,23 +302,19 @@ struct VoiceInputView: View {
             Spacer()
         }
         .alert("权限或识别错误", isPresented: $showingErrorAlert) {
-            Button("确定", role: .cancel) { }
+            Button("确定", role: .cancel) {}
         } message: { Text(errorMessage) }
     }
 
     private func requestPermissionsAndStart() {
         recognizedText = ""
-
-        // 延迟初始化语音识别器，检查设备是否支持
         if speechRecognizer == nil {
             speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "zh-CN"))
         }
-
         guard let speechRecognizer = speechRecognizer else {
             showError("您的设备不支持中文语音识别")
             return
         }
-
         SFSpeechRecognizer.requestAuthorization { authStatus in
             DispatchQueue.main.async {
                 if authStatus == .authorized {
@@ -315,20 +329,15 @@ struct VoiceInputView: View {
     }
 
     private func startRecording() {
-        // 延迟初始化音频引擎，首次需要时才创建
-        if audioEngine == nil {
-            audioEngine = AVAudioEngine()
-        }
-
+        if audioEngine == nil { audioEngine = AVAudioEngine() }
         guard let audioEngine = audioEngine, !audioEngine.isRunning else {
             if audioEngine?.isRunning == true { stopRecording() }
             return
         }
-
         do {
-            let audioSession = AVAudioSession.sharedInstance()
-            try audioSession.setCategory(.record, mode: .measurement, options: .duckOthers)
-            try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.record, mode: .measurement, options: .duckOthers)
+            try session.setActive(true, options: .notifyOthersOnDeactivation)
         } catch { showError("无法启动麦克风模块"); return }
 
         recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
@@ -337,9 +346,8 @@ struct VoiceInputView: View {
 
         let inputNode = audioEngine.inputNode
         let recordingFormat = inputNode.outputFormat(forBus: 0)
-
         inputNode.removeTap(onBus: 0)
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { (buffer, _) in
+        inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { buffer, _ in
             self.recognitionRequest?.append(buffer)
         }
 
@@ -349,17 +357,10 @@ struct VoiceInputView: View {
             isRecording = true
         } catch { showError("音频引擎启动失败"); return }
 
-        guard let speechRecognizer = speechRecognizer else {
-            showError("语音识别器不可用")
-            return
-        }
-
-        recognitionTask = speechRecognizer.recognitionTask(with: recognitionRequest) { result, error in
+        guard let sr = speechRecognizer else { showError("语音识别器不可用"); return }
+        recognitionTask = sr.recognitionTask(with: recognitionRequest) { result, error in
             if let result = result { self.recognizedText = result.bestTranscription.formattedString }
-            if error != nil {
-                self.showError("语音识别出错，请重试")
-                self.stopRecording()
-            }
+            if error != nil { self.showError("语音识别出错，请重试"); self.stopRecording() }
         }
     }
 
@@ -373,30 +374,24 @@ struct VoiceInputView: View {
         recognitionTask?.cancel()
         recognitionTask = nil
         recognitionRequest = nil
-
         if !recognizedText.isEmpty { saveVoiceTransaction(text: recognizedText) }
     }
-    
+
     private func saveVoiceTransaction(text: String) {
-        let amountValue = extractAmount(from: text) ?? 0.0
-        if amountValue > 0 {
-            guard let category = categories.first(where: { $0.name == "餐饮" }) ?? categories.first else {
-                showError("无法保存：分类信息不完整")
-                return
-            }
-            // 修正：适配 S3 增强版模型，移除 title，确保有 date
-            let transaction = Transaction(
-                amount: amountValue,
-                date: Date(),
-                note: text,
-                type: .expense,
-                category: category
-            )
-            modelContext.insert(transaction)
-            recognizedText = "✅ 记账成功：提取金额 ¥\(amountValue)"
-        } else {
+        let amount = extractAmount(from: text) ?? 0.0
+        guard amount > 0 else {
             recognizedText = "⚠️ 未听到明确金额：\(text)"
+            return
         }
+        guard let category = categories.first(where: { $0.name == "餐饮" }) ?? categories.first else {
+            showError("无法保存：分类信息不完整")
+            return
+        }
+        let transaction = Transaction(
+            amount: amount, date: Date(), note: text, type: .expense, category: category
+        )
+        modelContext.insert(transaction)
+        recognizedText = "✅ 记账成功：提取金额 ¥\(String(format: "%.2f", amount))"
     }
 
     private func extractAmount(from text: String) -> Double? {
@@ -409,8 +404,8 @@ struct VoiceInputView: View {
     }
 
     private func showError(_ msg: String) {
-        self.errorMessage = msg
-        self.showingErrorAlert = true
+        errorMessage = msg
+        showingErrorAlert = true
     }
 }
 
@@ -427,9 +422,8 @@ struct TextInputView: View {
     let themeColors: ThemeColorSet
 
     var isAmountValid: Bool {
-        guard !amount.isEmpty else { return false }
-        guard let amountValue = Double(amount) else { return false }
-        return amountValue > 0
+        guard !amount.isEmpty, let v = Double(amount) else { return false }
+        return v > 0
     }
 
     func saveTransaction() {
@@ -438,21 +432,16 @@ struct TextInputView: View {
             showingErrorAlert = true
             return
         }
-
         guard let category = selectedCategory ?? categories.first else {
             errorMessage = "分类信息不完整，无法保存"
             showingErrorAlert = true
             return
         }
-
         let transaction = Transaction(
-            amount: amountValue,
-            date: Date(),
+            amount: amountValue, date: Date(),
             note: note.isEmpty ? nil : note,
-            type: .expense,
-            category: category
+            type: .expense, category: category
         )
-
         modelContext.insert(transaction)
         amount = ""
         selectedCategory = nil
@@ -465,9 +454,12 @@ struct TextInputView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("金额").font(.system(size: AppTheme.fontSizeSmall, weight: .semibold)).foregroundColor(themeColors.textSecondary)
                     TextField("0.00", text: $amount)
-                        .keyboardType(.decimalPad).font(.system(size: 20, weight: .semibold))
-                        .foregroundColor(themeColors.textPrimary).padding(AppTheme.spacingMedium)
-                        .background(themeColors.backgroundSecondary).cornerRadius(AppTheme.cornerRadiusMedium)
+                        .keyboardType(.decimalPad)
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(themeColors.textPrimary)
+                        .padding(AppTheme.spacingMedium)
+                        .background(themeColors.backgroundSecondary)
+                        .cornerRadius(AppTheme.cornerRadiusMedium)
                         .overlay(RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium).stroke(themeColors.borderColor, lineWidth: 1))
                         .onChange(of: amount) { oldValue, newValue in
                             let filtered = newValue.filter { $0.isNumber || $0 == "." }
@@ -480,16 +472,19 @@ struct TextInputView: View {
                     Text("分类").font(.system(size: AppTheme.fontSizeSmall, weight: .semibold)).foregroundColor(themeColors.textSecondary)
                     Picker("分类", selection: $selectedCategory) {
                         Text("未分类").tag(nil as Category?)
-                        ForEach(categories) { category in
-                            HStack { Image(systemName: category.icon); Text(category.name) }.tag(category as Category?)
+                        ForEach(categories) { cat in
+                            HStack {
+                                Image(systemName: cat.icon)
+                                Text(cat.name)
+                            }.tag(cat as Category?)
                         }
                     }
-                    .frame(maxWidth: .infinity).frame(height: 44).background(themeColors.backgroundSecondary)
+                    .frame(maxWidth: .infinity).frame(height: 44)
+                    .background(themeColors.backgroundSecondary)
                     .cornerRadius(AppTheme.cornerRadiusMedium)
                     .overlay(RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium).stroke(themeColors.borderColor, lineWidth: 1))
                 }
                 .onAppear {
-                    // 初始化时预设为第一个分类，改善用户体验
                     if selectedCategory == nil && !categories.isEmpty {
                         selectedCategory = categories.first
                     }
@@ -498,8 +493,11 @@ struct TextInputView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("备注（可选）").font(.system(size: AppTheme.fontSizeSmall, weight: .semibold)).foregroundColor(themeColors.textSecondary)
                     TextField("添加备注...", text: $note)
-                        .font(.system(size: AppTheme.fontSizeMedium)).foregroundColor(themeColors.textPrimary)
-                        .padding(AppTheme.spacingMedium).frame(height: 44).background(themeColors.backgroundSecondary)
+                        .font(.system(size: AppTheme.fontSizeMedium))
+                        .foregroundColor(themeColors.textPrimary)
+                        .padding(AppTheme.spacingMedium)
+                        .frame(height: 44)
+                        .background(themeColors.backgroundSecondary)
                         .cornerRadius(AppTheme.cornerRadiusMedium)
                         .overlay(RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium).stroke(themeColors.borderColor, lineWidth: 1))
                 }
@@ -515,33 +513,36 @@ struct TextInputView: View {
                             ? LinearGradient(gradient: Gradient(colors: [themeColors.primaryColor, themeColors.accentColor]), startPoint: .topLeading, endPoint: .bottomTrailing)
                             : LinearGradient(gradient: Gradient(colors: [themeColors.borderColor, themeColors.borderColor]), startPoint: .topLeading, endPoint: .bottomTrailing)
                     )
-                    .foregroundColor(.white).cornerRadius(AppTheme.cornerRadiusMedium)
+                    .foregroundColor(.white)
+                    .cornerRadius(AppTheme.cornerRadiusMedium)
                 }
                 .disabled(!isAmountValid)
             }
             .padding(AppTheme.spacingLarge)
             Spacer()
         }
-        .alert("输入错误", isPresented: $showingErrorAlert) { Button("确定") { } } message: { Text(errorMessage) }
+        .alert("输入错误", isPresented: $showingErrorAlert) {
+            Button("确定") {}
+        } message: { Text(errorMessage) }
     }
 }
 
-// MARK: - 最近账单行项目
+// MARK: - 最近账单行
 struct TransactionRowItem: View {
     let transaction: Transaction
     let themeColors: ThemeColorSet
 
-    var typeColor: Color { transaction.type == .income ? themeColors.successColor : themeColors.errorColor }
+    var typeColor: Color {
+        transaction.type == .income ? themeColors.successColor : themeColors.errorColor
+    }
 
     var body: some View {
         HStack(spacing: AppTheme.spacingMedium) {
             VStack(alignment: .leading, spacing: 4) {
-                // 修正：模型中已移除 title 字段，统一使用 note
                 Text(transaction.note ?? "未命名记录")
                     .font(.system(size: AppTheme.fontSizeMedium, weight: .semibold))
                     .foregroundColor(themeColors.textPrimary)
                     .lineLimit(1)
-
                 HStack(spacing: 4) {
                     Image(systemName: transaction.category.icon).font(.system(size: 12))
                     Text(transaction.category.name).font(.system(size: AppTheme.fontSizeSmall))
@@ -551,13 +552,20 @@ struct TransactionRowItem: View {
             Spacer()
             VStack(alignment: .trailing, spacing: 4) {
                 Text("\(transaction.type == .income ? "+" : "-")¥\(String(format: "%.2f", transaction.amount))")
-                    .font(.system(size: AppTheme.fontSizeMedium, weight: .semibold)).foregroundColor(typeColor)
+                    .font(.system(size: AppTheme.fontSizeMedium, weight: .semibold))
+                    .foregroundColor(typeColor)
                 Text(transaction.date, style: .date)
-                    .font(.system(size: AppTheme.fontSizeSmall)).foregroundColor(themeColors.textTertiary)
+                    .font(.system(size: AppTheme.fontSizeSmall))
+                    .foregroundColor(themeColors.textTertiary)
             }
         }
-        .padding(AppTheme.spacingMedium).background(themeColors.backgroundSecondary).cornerRadius(AppTheme.cornerRadiusMedium)
-        .overlay(RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium).stroke(themeColors.borderColor, lineWidth: 0.5))
+        .padding(AppTheme.spacingMedium)
+        .background(themeColors.backgroundSecondary)
+        .cornerRadius(AppTheme.cornerRadiusMedium)
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium)
+                .stroke(themeColors.borderColor, lineWidth: 0.5)
+        )
     }
 }
 
@@ -565,5 +573,5 @@ struct TransactionRowItem: View {
 enum InputTabType: CaseIterable {
     case voice, text
     var label: String { self == .voice ? "语音输入" : "文本输入" }
-    var icon: String { self == .voice ? "mic" : "pencil" }
+    var icon: String  { self == .voice ? "mic"      : "pencil"  }
 }
