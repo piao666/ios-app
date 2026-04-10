@@ -38,20 +38,14 @@ targets:
     deploymentTarget: "17.0"
     info:
       path: ./Config/Info.plist
-
     sources:
-      - path: "./AppDelegate.swift"
-      - path: "./ExpenseTrackerApp.swift"
-      - path: "./Sources/Theme.swift"
-      - path: "./Sources/Models.swift"
-      - path: "./Sources/Views"
-
+      - path: "./AppMain.swift"
+      - path: "./SourcesClean"
     resources:
       - path: "./Assets.xcassets"
       - path: "./LaunchScreen.storyboard"
       - path: "./AppLogo-1024.png"
         optional: true
-
     settings:
       base:
         PRODUCT_NAME: ExpenseTracker
@@ -63,7 +57,7 @@ targets:
     platform: iOS
     deploymentTarget: "17.0"
     sources:
-      - path: "./Tests/ExpenseTrackerTests.swift"
+      - path: "./TestsClean/ExpenseTrackerTests.swift"
     dependencies:
       - target: ExpenseTracker
     settings:
