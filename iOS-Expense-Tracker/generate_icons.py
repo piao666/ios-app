@@ -6,7 +6,12 @@
 
 import os
 import sys
+import io
 from PIL import Image
+
+# 修复 Windows 编码问题
+if sys.platform == 'win32':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 def generate_app_icons(source_image_path, output_dir):
     """生成所有必需的 App Icon 尺寸"""

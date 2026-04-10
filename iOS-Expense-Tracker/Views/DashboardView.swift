@@ -234,6 +234,7 @@ struct VoiceInputView: View {
     @State private var errorMessage = ""
     @State private var audioEngine: AVAudioEngine?
     @State private var speechRecognizer: SFSpeechRecognizer?
+    @State private var isSaved = false
 
     var body: some View {
         VStack(spacing: AppTheme.spacingXLarge) {
@@ -329,6 +330,7 @@ struct VoiceInputView: View {
     }
 
     private func startRecording() {
+        isSaved = false
         if audioEngine == nil { audioEngine = AVAudioEngine() }
         guard let audioEngine = audioEngine, !audioEngine.isRunning else {
             if audioEngine?.isRunning == true { stopRecording() }
@@ -359,8 +361,14 @@ struct VoiceInputView: View {
 
         guard let sr = speechRecognizer else { showError("语音识别器不可用"); return }
         recognitionTask = sr.recognitionTask(with: recognitionRequest) { result, error in
+            // 更新识别文本
             if let result = result { self.recognizedText = result.bestTranscription.formattedString }
-            if error != nil { self.showError("语音识别出错，请重试"); self.stopRecording() }
+
+            // 仅在发生错误时处理错误，防止重复触发 stopRecording
+            if error != nil {
+                self.showError("语音识别出错，请重试")
+                self.stopRecording()
+            }
         }
     }
 
@@ -374,7 +382,12 @@ struct VoiceInputView: View {
         recognitionTask?.cancel()
         recognitionTask = nil
         recognitionRequest = nil
-        if !recognizedText.isEmpty { saveVoiceTransaction(text: recognizedText) }
+
+        // 防止重复保存：只在正常结束且未保存时才保存
+        if !recognizedText.isEmpty && !isSaved {
+            isSaved = true
+            saveVoiceTransaction(text: recognizedText)
+        }
     }
 
     private func saveVoiceTransaction(text: String) {

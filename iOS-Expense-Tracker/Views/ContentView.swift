@@ -8,6 +8,7 @@ struct ContentView: View {
 
     @State private var showingAddTransaction = false
     @State private var selectedTab = 0
+    @State private var showingLedger = false
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -23,11 +24,25 @@ struct ContentView: View {
 
             // MARK: - Tab 2：统计
             NavigationStack {
-                ScrollView {
-                    ExpensePieChartView(transactions: transactions)
-                        .padding()
+                if showingLedger {
+                    LedgerView(transactions: transactions)
+                        .navigationTitle("账单簿")
+                } else {
+                    ScrollView {
+                        ExpensePieChartView(transactions: transactions)
+                            .padding()
+                    }
+                    .navigationTitle("统计")
                 }
-                .navigationTitle("统计")
+            }
+            .toolbar {
+                ToolbarItemGroup(placement: .navigationBarTrailing) {
+                    Button(action: { withAnimation { showingLedger.toggle() } }) {
+                        Text(showingLedger ? "统计" : "账单簿")
+                            .font(.system(size: AppTheme.fontSizeSmall, weight: .semibold))
+                            .foregroundColor(AppTheme.primaryColor)
+                    }
+                }
             }
             .tabItem { Label("统计", systemImage: "chart.pie") }
             .tag(2)
