@@ -24,12 +24,7 @@ jobs:
         working-directory: ./iOS-Expense-Tracker
         run: |
           if [ ! -f "AppLogo-1024.png" ]; then
-            python3 - <<'PY'
-            from PIL import Image
-            img = Image.new("RGB", (1024, 1024), color=(42, 122, 255))
-            img.save("AppLogo-1024.png", "PNG")
-            print("Generated placeholder logo.")
-            PY
+            python3 -c "from PIL import Image; Image.new('RGB', (1024, 1024), color=(42, 122, 255)).save('AppLogo-1024.png', 'PNG'); print('Generated placeholder logo.')"
           fi
           python3 generate_icons.py AppLogo-1024.png
 
