@@ -5,7 +5,7 @@
     <key>CFBundleDevelopmentRegion</key>
     <string>zh_CN</string>
     <key>CFBundleDisplayName</key>
-    <string>小海记账</string>
+    <string>小海帐</string>
     <key>CFBundleExecutable</key>
     <string>$(EXECUTABLE_NAME)</string>
     <key>CFBundleIdentifier</key>
@@ -22,10 +22,15 @@
     <string>1</string>
     <key>LSRequiresIPhoneOS</key>
     <true/>
+    <key>UIDeviceFamily</key>
+    <array>
+        <integer>1</integer>
+        <integer>2</integer>
+    </array>
     <key>NSMicrophoneUsageDescription</key>
-    <string>小海记账需要麦克风权限，用于语音记账。</string>
+    <string>小海帐需要麦克风权限，用于语音记账。</string>
     <key>NSSpeechRecognitionUsageDescription</key>
-    <string>小海记账需要语音识别权限，把你的语音转成记账内容。</string>
+    <string>小海帐需要语音识别权限，把你的语音转成记账内容。</string>
     <key>UIApplicationSceneManifest</key>
     <dict>
         <key>UIApplicationSupportsMultipleScenes</key>

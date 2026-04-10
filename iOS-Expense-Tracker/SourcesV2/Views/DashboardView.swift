@@ -23,15 +23,11 @@ struct DashboardView: View {
     }
 
     private var monthExpense: Double {
-        monthTransactions
-            .filter { $0.type == .expense }
-            .reduce(0) { $0 + $1.amount }
+        monthTransactions.filter { $0.type == .expense }.reduce(0) { $0 + $1.amount }
     }
 
     private var monthIncome: Double {
-        monthTransactions
-            .filter { $0.type == .income }
-            .reduce(0) { $0 + $1.amount }
+        monthTransactions.filter { $0.type == .income }.reduce(0) { $0 + $1.amount }
     }
 
     private var recentTransactions: [Transaction] {
@@ -57,8 +53,20 @@ struct DashboardView: View {
             .padding(.bottom, AppTheme.spacingXXLarge)
         }
         .background(themeColors.backgroundPrimary.ignoresSafeArea())
-        .navigationTitle("小海记账")
         .toolbar {
+            ToolbarItem(placement: .principal) {
+                HStack(spacing: 8) {
+                    Image("BrandLogo")
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: 22, height: 22)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                    Text("小海帐")
+                        .font(.system(size: 24, weight: .bold))
+                        .foregroundStyle(themeColors.textPrimary)
+                }
+            }
+
             ToolbarItemGroup(placement: .navigationBarTrailing) {
                 Button {
                     withAnimation(.easeInOut(duration: 0.2)) {
@@ -126,7 +134,6 @@ struct DashboardView: View {
             RoundedRectangle(cornerRadius: AppTheme.cornerRadiusLarge)
                 .stroke(themeColors.cardBorder, lineWidth: 1)
         )
-        .shadow(color: themeColors.shadowColor, radius: 18, x: 0, y: 10)
     }
 
     private var quickInputSection: some View {
@@ -171,7 +178,6 @@ struct DashboardView: View {
                 RoundedRectangle(cornerRadius: AppTheme.cornerRadiusLarge)
                     .stroke(themeColors.cardBorder, lineWidth: 1)
             )
-            .shadow(color: themeColors.shadowColor, radius: 12, x: 0, y: 6)
         }
     }
 
@@ -209,7 +215,12 @@ struct DashboardView: View {
             } else {
                 VStack(spacing: AppTheme.spacingSmall) {
                     ForEach(recentTransactions, id: \.id) { transaction in
-                        DashboardTransactionRow(transaction: transaction, themeColors: themeColors)
+                        NavigationLink {
+                            TransactionDetailView(transaction: transaction)
+                        } label: {
+                            DashboardTransactionRow(transaction: transaction, themeColors: themeColors)
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
             }
@@ -375,8 +386,10 @@ struct VoiceInputView: View {
         }
     }
 
+    @MainActor
     private func requestPermissionsAndStart() {
         recognizedText = ""
+        guard !isRecording else { return }
 
         guard speechRecognizer != nil else {
             showError("当前设备不支持中文语音识别。")
@@ -384,33 +397,33 @@ struct VoiceInputView: View {
         }
 
         SFSpeechRecognizer.requestAuthorization { status in
-            DispatchQueue.main.async {
-                guard status == .authorized else {
+            guard status == .authorized else {
+                Task { @MainActor in
                     showError("请先打开语音识别权限。")
-                    return
                 }
+                return
+            }
 
-                AVAudioSession.sharedInstance().requestRecordPermission { granted in
-                    DispatchQueue.main.async {
-                        guard granted else {
-                            showError("请先打开麦克风权限。")
-                            return
-                        }
-
-                        startRecording()
+            AVAudioSession.sharedInstance().requestRecordPermission { granted in
+                Task { @MainActor in
+                    guard granted else {
+                        showError("请先打开麦克风权限。")
+                        return
                     }
+                    startRecording()
                 }
             }
         }
     }
 
+    @MainActor
     private func startRecording() {
         recognitionTask?.cancel()
         recognitionTask = nil
 
         do {
             let audioSession = AVAudioSession.sharedInstance()
-            try audioSession.setCategory(.record, mode: .measurement, options: .duckOthers)
+            try audioSession.setCategory(.playAndRecord, mode: .measurement, options: [.duckOthers, .defaultToSpeaker])
             try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
         } catch {
             showError("无法启动录音：\(error.localizedDescription)")
@@ -424,7 +437,7 @@ struct VoiceInputView: View {
         let inputNode = audioEngine.inputNode
         inputNode.removeTap(onBus: 0)
         inputNode.installTap(onBus: 0, bufferSize: 1024, format: inputNode.outputFormat(forBus: 0)) { buffer, _ in
-            request.append(buffer)
+            self.recognitionRequest?.append(buffer)
         }
 
         audioEngine.prepare()
@@ -439,17 +452,20 @@ struct VoiceInputView: View {
         }
 
         recognitionTask = speechRecognizer?.recognitionTask(with: request) { result, error in
-            if let result {
-                recognizedText = result.bestTranscription.formattedString
-            }
+            Task { @MainActor in
+                if let result {
+                    recognizedText = result.bestTranscription.formattedString
+                }
 
-            if error != nil {
-                stopRecording(saveResult: false)
-                showError("语音识别发生错误，请重试。")
+                if error != nil {
+                    stopRecording(saveResult: false)
+                    showError("语音识别发生错误，请重试。")
+                }
             }
         }
     }
 
+    @MainActor
     private func stopRecording(saveResult: Bool) {
         isRecording = false
 
@@ -470,6 +486,7 @@ struct VoiceInputView: View {
         saveRecognizedTransaction()
     }
 
+    @MainActor
     private func saveRecognizedTransaction() {
         guard let amount = extractAmount(from: recognizedText), amount > 0 else {
             showError("没有识别到有效金额，请说得更明确一点。")
@@ -534,6 +551,7 @@ struct VoiceInputView: View {
         return Double(String(text[valueRange]))
     }
 
+    @MainActor
     private func showError(_ message: String) {
         errorMessage = message
         showingErrorAlert = true

@@ -77,19 +77,17 @@ struct ExpensePieChartView: View {
             Chart(expenseSlices) { slice in
                 SectorMark(
                     angle: .value("金额", slice.amount),
-                    innerRadius: .ratio(0.58),
+                    innerRadius: .ratio(0.56),
                     angularInset: 2
                 )
-                .foregroundStyle(slice.category.color)
-                .annotation(position: .overlay) {
-                    if totalAmount > 0, slice.amount / totalAmount >= 0.1 {
-                        Text("\(Int((slice.amount / totalAmount) * 100))%")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundStyle(.white)
-                    }
-                }
+                .foregroundStyle(by: .value("分类", slice.category.name))
             }
-            .frame(height: 280)
+            .chartForegroundStyleScale(
+                domain: expenseSlices.map { $0.category.name },
+                range: expenseSlices.map { $0.category.color }
+            )
+            .chartLegend(position: .bottom, alignment: .leading, spacing: 8)
+            .frame(height: 300)
             .padding(.top, AppTheme.spacingSmall)
 
             VStack(spacing: AppTheme.spacingSmall) {
@@ -98,9 +96,6 @@ struct ExpensePieChartView: View {
                         Circle()
                             .fill(slice.category.color)
                             .frame(width: 12, height: 12)
-
-                        Image(systemName: slice.category.icon)
-                            .foregroundStyle(slice.category.color)
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text(slice.category.name)

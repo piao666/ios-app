@@ -98,6 +98,7 @@ private struct StatisticsContainerView: View {
 
     let transactions: [Transaction]
     @Binding var mode: StatisticsMode
+    @State private var showingAddTransaction = false
 
     private var themeColors: ThemeColorSet {
         ThemeManager.getColorSet(isDark: themeSettings.isDarkMode)
@@ -117,14 +118,27 @@ private struct StatisticsContainerView: View {
             }
         }
         .background(themeColors.backgroundPrimary.ignoresSafeArea())
-        .navigationTitle(mode == .chart ? "统计分析" : "月度账本")
+        .navigationTitle(mode == .chart ? "统计分析" : "账本")
         .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
+            ToolbarItemGroup(placement: .navigationBarTrailing) {
+                if mode == .ledger {
+                    Button {
+                        showingAddTransaction = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                }
+
                 Button(mode == .chart ? "账本" : "图表") {
                     withAnimation(.easeInOut(duration: 0.2)) {
                         mode = mode == .chart ? .ledger : .chart
                     }
                 }
+            }
+        }
+        .sheet(isPresented: $showingAddTransaction) {
+            NavigationStack {
+                AddTransactionView()
             }
         }
     }

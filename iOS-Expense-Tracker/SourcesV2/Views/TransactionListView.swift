@@ -2,6 +2,7 @@ import SwiftData
 import SwiftUI
 
 struct TransactionListView: View {
+    @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var themeSettings: ThemeSettings
     @Query(sort: \Transaction.date, order: .reverse) private var transactions: [Transaction]
 
@@ -97,41 +98,63 @@ struct TransactionListView: View {
                 )
             } else {
                 ForEach(filteredTransactions, id: \.id) { transaction in
-                    HStack(spacing: AppTheme.spacingMedium) {
-                        Circle()
-                            .fill(transaction.category.color.opacity(0.14))
-                            .frame(width: 52, height: 52)
-                            .overlay {
-                                Image(systemName: transaction.category.icon)
-                                    .foregroundStyle(transaction.category.color)
-                                    .font(.system(size: 18, weight: .bold))
-                            }
-
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(transaction.displayTitle)
-                                .font(.system(size: 22, weight: .bold))
-                                .foregroundStyle(themeColors.textPrimary)
-                                .lineLimit(1)
-                            Text(transaction.date.formatted(date: .abbreviated, time: .shortened))
-                                .font(.system(size: AppTheme.fontSizeCaption))
-                                .foregroundStyle(themeColors.textSecondary)
-                        }
-
-                        Spacer()
-
-                        Text(transaction.signedAmountText)
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundStyle(transaction.type.color)
+                    NavigationLink {
+                        TransactionDetailView(transaction: transaction)
+                    } label: {
+                        TransactionRowCard(transaction: transaction, themeColors: themeColors)
                     }
-                    .padding(AppTheme.spacingMedium)
-                    .background(themeColors.cardBackground)
-                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium)
-                            .stroke(themeColors.cardBorder, lineWidth: 1)
-                    )
+                    .buttonStyle(.plain)
+                    .swipeActions {
+                        Button(role: .destructive) {
+                            modelContext.delete(transaction)
+                            try? modelContext.save()
+                        } label: {
+                            Label("删除", systemImage: "trash")
+                        }
+                    }
                 }
             }
         }
+    }
+}
+
+private struct TransactionRowCard: View {
+    let transaction: Transaction
+    let themeColors: ThemeColorSet
+
+    var body: some View {
+        HStack(spacing: AppTheme.spacingMedium) {
+            Circle()
+                .fill(transaction.category.color.opacity(0.14))
+                .frame(width: 52, height: 52)
+                .overlay {
+                    Image(systemName: transaction.category.icon)
+                        .foregroundStyle(transaction.category.color)
+                        .font(.system(size: 18, weight: .bold))
+                }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(transaction.displayTitle)
+                    .font(.system(size: AppTheme.fontSizeSubtitle, weight: .bold))
+                    .foregroundStyle(themeColors.textPrimary)
+                    .lineLimit(1)
+                Text(transaction.date.formatted(date: .abbreviated, time: .shortened))
+                    .font(.system(size: AppTheme.fontSizeCaption))
+                    .foregroundStyle(themeColors.textSecondary)
+            }
+
+            Spacer()
+
+            Text(transaction.signedAmountText)
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(transaction.type.color)
+        }
+        .padding(AppTheme.spacingMedium)
+        .background(themeColors.cardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium))
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.cornerRadiusMedium)
+                .stroke(themeColors.cardBorder, lineWidth: 1)
+        )
     }
 }

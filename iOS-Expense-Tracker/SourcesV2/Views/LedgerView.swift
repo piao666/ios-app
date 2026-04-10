@@ -1,4 +1,12 @@
+import SwiftData
 import SwiftUI
+
+private enum LedgerScope: String, CaseIterable, Identifiable {
+    case month = "月账本"
+    case year = "年账本"
+
+    var id: String { rawValue }
+}
 
 private struct LedgerGroup: Identifiable {
     let id: String
@@ -9,18 +17,30 @@ private struct LedgerGroup: Identifiable {
 }
 
 struct LedgerView: View {
+    @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var themeSettings: ThemeSettings
 
     let transactions: [Transaction]
+
+    @State private var scope: LedgerScope = .month
 
     private var themeColors: ThemeColorSet {
         ThemeManager.getColorSet(isDark: themeSettings.isDarkMode)
     }
 
-    private var groupedMonths: [LedgerGroup] {
-        let grouped = Dictionary(grouping: transactions) { Transaction.formatYearMonth($0.date) }
+    private var groupedLedgers: [LedgerGroup] {
+        let groups: [String: [Transaction]]
 
-        return grouped.map { key, items in
+        switch scope {
+        case .month:
+            groups = Dictionary(grouping: transactions) { Transaction.formatYearMonth($0.date) }
+        case .year:
+            groups = Dictionary(grouping: transactions) {
+                String(Calendar.current.component(.year, from: $0.date))
+            }
+        }
+
+        return groups.map { key, items in
             LedgerGroup(
                 id: key,
                 title: displayTitle(for: key),
@@ -34,43 +54,56 @@ struct LedgerView: View {
 
     var body: some View {
         Group {
-            if groupedMonths.isEmpty {
-                VStack(spacing: AppTheme.spacingSmall) {
-                    Image(systemName: "book.closed")
-                        .font(.system(size: 36))
-                        .foregroundStyle(themeColors.textTertiary)
-                    Text("还没有账本数据")
-                        .font(.system(size: AppTheme.fontSizeBody, weight: .medium))
-                        .foregroundStyle(themeColors.textSecondary)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(themeColors.backgroundPrimary)
+            if groupedLedgers.isEmpty {
+                emptyState
             } else {
                 List {
-                    ForEach(groupedMonths) { group in
+                    Section {
+                        Picker("账本维度", selection: $scope) {
+                            ForEach(LedgerScope.allCases) { item in
+                                Text(item.rawValue).tag(item)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .listRowBackground(themeColors.backgroundPrimary)
+                    }
+
+                    ForEach(groupedLedgers) { group in
                         Section {
                             ForEach(group.transactions, id: \.id) { transaction in
-                                HStack(spacing: AppTheme.spacingMedium) {
-                                    Image(systemName: transaction.category.icon)
-                                        .foregroundStyle(transaction.category.color)
-                                        .frame(width: 22)
+                                NavigationLink {
+                                    TransactionDetailView(transaction: transaction)
+                                } label: {
+                                    HStack(spacing: AppTheme.spacingMedium) {
+                                        Image(systemName: transaction.category.icon)
+                                            .foregroundStyle(transaction.category.color)
+                                            .frame(width: 22)
 
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(transaction.displayTitle)
-                                            .font(.system(size: AppTheme.fontSizeBody, weight: .semibold))
-                                            .foregroundStyle(themeColors.textPrimary)
-                                        Text(transaction.date.formatted(date: .numeric, time: .shortened))
-                                            .font(.system(size: AppTheme.fontSizeCaption))
-                                            .foregroundStyle(themeColors.textSecondary)
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text(transaction.displayTitle)
+                                                .font(.system(size: AppTheme.fontSizeBody, weight: .semibold))
+                                                .foregroundStyle(themeColors.textPrimary)
+                                            Text(transaction.date.formatted(date: .numeric, time: .shortened))
+                                                .font(.system(size: AppTheme.fontSizeCaption))
+                                                .foregroundStyle(themeColors.textSecondary)
+                                        }
+
+                                        Spacer()
+
+                                        Text(transaction.signedAmountText)
+                                            .font(.system(size: AppTheme.fontSizeBody, weight: .bold))
+                                            .foregroundStyle(transaction.type.color)
                                     }
-
-                                    Spacer()
-
-                                    Text(transaction.signedAmountText)
-                                        .font(.system(size: AppTheme.fontSizeBody, weight: .bold))
-                                        .foregroundStyle(transaction.type.color)
+                                    .padding(.vertical, 4)
                                 }
-                                .padding(.vertical, 4)
+                                .swipeActions {
+                                    Button(role: .destructive) {
+                                        modelContext.delete(transaction)
+                                        try? modelContext.save()
+                                    } label: {
+                                        Label("删除", systemImage: "trash")
+                                    }
+                                }
                                 .listRowBackground(themeColors.cardBackground)
                             }
                         } header: {
@@ -90,18 +123,46 @@ struct LedgerView: View {
         }
     }
 
-    private func displayTitle(for key: String) -> String {
-        let inputFormatter = DateFormatter()
-        inputFormatter.locale = Locale(identifier: "zh_CN")
-        inputFormatter.dateFormat = "yyyy-MM"
+    private var emptyState: some View {
+        VStack(spacing: AppTheme.spacingMedium) {
+            Picker("账本维度", selection: $scope) {
+                ForEach(LedgerScope.allCases) { item in
+                    Text(item.rawValue).tag(item)
+                }
+            }
+            .pickerStyle(.segmented)
+            .padding(.horizontal, AppTheme.spacingLarge)
 
-        guard let date = inputFormatter.date(from: key) else {
-            return key
+            VStack(spacing: AppTheme.spacingSmall) {
+                Image(systemName: "book.closed")
+                    .font(.system(size: 36))
+                    .foregroundStyle(themeColors.textTertiary)
+                Text("还没有账本数据")
+                    .font(.system(size: AppTheme.fontSizeBody, weight: .medium))
+                    .foregroundStyle(themeColors.textSecondary)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .background(themeColors.backgroundPrimary)
+    }
 
-        let outputFormatter = DateFormatter()
-        outputFormatter.locale = Locale(identifier: "zh_CN")
-        outputFormatter.dateFormat = "yyyy年M月"
-        return outputFormatter.string(from: date)
+    private func displayTitle(for key: String) -> String {
+        switch scope {
+        case .year:
+            return "\(key)年"
+        case .month:
+            let inputFormatter = DateFormatter()
+            inputFormatter.locale = Locale(identifier: "zh_CN")
+            inputFormatter.dateFormat = "yyyy-MM"
+
+            guard let date = inputFormatter.date(from: key) else {
+                return key
+            }
+
+            let outputFormatter = DateFormatter()
+            outputFormatter.locale = Locale(identifier: "zh_CN")
+            outputFormatter.dateFormat = "yyyy年M月"
+            return outputFormatter.string(from: date)
+        }
     }
 }
