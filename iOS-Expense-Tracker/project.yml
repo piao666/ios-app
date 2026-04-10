@@ -1,24 +1,50 @@
 name: ExpenseTracker
 options:
-  bundleIdPrefix: com.yourname
+  bundleIdPrefix: com.piao
+  deploymentTarget:
+    iOS: "16.0"
+
+settings:
+  SWIFT_VERSION: "5.9"
+  IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+
+schemes:
+  ExpenseTracker:
+    build:
+      targets:
+        ExpenseTracker: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - ExpenseTracker
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
+
 targets:
   ExpenseTracker:
     type: application
     platform: iOS
-    deploymentTarget: "17.0"
+    deploymentTarget: "16.0"
+    info:
+      path: ./Info.plist
+
     sources:
-      - Models
-      - Views
-      - AppDelegate.swift
-      - ExpenseTrackerApp.swift
-      - Theme.swift
-      - LaunchScreen.storyboard
-      - Info.plist
+      - path: "./ExpenseTrackerApp.swift"
+      - path: "./Theme.swift"
+      - path: "./Models"
+      - path: "./Views"
+
     resources:
-      - path: Assets.xcassets
-        optional: true
+      - path: "./Assets.xcassets"
+
     settings:
-      base:
-        INFOPLIST_FILE: Info.plist
-        PRODUCT_BUNDLE_IDENTIFIER: com.yourname.ExpenseTracker
-        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+      PRODUCT_NAME: ExpenseTracker
+      PRODUCT_BUNDLE_IDENTIFIER: com.piao.expenses
+      SWIFT_VERSION: "5.9"
+      IPHONEOS_DEPLOYMENT_TARGET: "16.0"
