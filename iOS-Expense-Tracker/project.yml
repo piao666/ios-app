@@ -35,6 +35,7 @@ targets:
       path: ./Info.plist
 
     sources:
+      - path: "./AppDelegate.swift"
       - path: "./ExpenseTrackerApp.swift"
       - path: "./Theme.swift"
       - path: "./Models"
