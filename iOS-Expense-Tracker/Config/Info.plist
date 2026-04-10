@@ -12,8 +12,9 @@
     <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
+    <!-- 修复：直接写死中文名，不再依赖 PRODUCT_NAME，确保桌面图标显示"小海帐" -->
     <key>CFBundleName</key>
-    <string>$(PRODUCT_NAME)</string>
+    <string>小海帐</string>
     <key>CFBundlePackageType</key>
     <string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
     <key>CFBundleShortVersionString</key>

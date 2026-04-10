@@ -3,6 +3,202 @@ import Speech
 import SwiftData
 import SwiftUI
 
+// MARK: - 语音录音管理器（独立 class，生命周期稳定）
+// 修复根因：原代码把 AVAudioEngine 放在 SwiftUI View 的 @State 里，
+// SwiftUI 每次 body 重新计算时可能重新初始化引擎，同时在非 async 函数上
+// 使用 @MainActor 标记会在某些 iOS 17 设备上引发 EXC_BAD_ACCESS 闪退。
+// 解决方案：将音频引擎、识别任务全部封装进 ObservableObject，
+// 在 init() 里创建一次，生命周期由 SwiftUI 稳定管理。
+@MainActor
+final class SpeechRecorderManager: ObservableObject {
+    @Published var isRecording = false
+    @Published var recognizedText = ""
+    @Published var statusText = "点击下方按钮开始语音记账，例如：午饭 32 元"
+    @Published var errorMessage = ""
+    @Published var showingError = false
+
+    // 懒加载：首次需要时才创建，避免在 View init 期间触发 AVAudioSession 权限请求
+    private var _audioEngine: AVAudioEngine?
+    private var audioEngine: AVAudioEngine {
+        if _audioEngine == nil { _audioEngine = AVAudioEngine() }
+        return _audioEngine!
+    }
+    private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
+    private var recognitionTask: SFSpeechRecognitionTask?
+    // 懒加载识别器，避免 init 时就申请权限
+    private lazy var speechRecognizer: SFSpeechRecognizer? = {
+        SFSpeechRecognizer(locale: Locale(identifier: "zh-CN"))
+    }()
+
+    // 防止 recognitionTask 回调重复保存
+    private var hasSaved = false
+    // 防止手势重复触发
+    private var isStarting = false
+
+    var onTransactionSaved: ((Double, TransactionType, String) -> Void)?
+
+    func toggleRecording() {
+        if isRecording {
+            stopRecording(save: true)
+        } else {
+            requestAndStart()
+        }
+    }
+
+    func requestAndStart() {
+        guard !isRecording, !isStarting else { return }
+        isStarting = true
+        recognizedText = ""
+        hasSaved = false
+
+        guard speechRecognizer != nil else {
+            isStarting = false
+            showError("当前设备不支持中文语音识别。")
+            return
+        }
+
+        SFSpeechRecognizer.requestAuthorization { [weak self] status in
+            guard let self else { return }
+            Task { @MainActor in
+                guard status == .authorized else {
+                    self.isStarting = false
+                    self.showError("请在「设置 - 隐私 - 语音识别」中开启权限。")
+                    return
+                }
+                AVAudioSession.sharedInstance().requestRecordPermission { granted in
+                    Task { @MainActor in
+                        self.isStarting = false
+                        if granted {
+                            self.startRecording()
+                        } else {
+                            self.showError("请在「设置 - 隐私 - 麦克风」中开启权限。")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func startRecording() {
+        // 重置引擎状态，防止上次未正常结束遗留状态
+        if audioEngine.isRunning {
+            audioEngine.stop()
+            audioEngine.inputNode.removeTap(onBus: 0)
+        }
+        recognitionTask?.cancel()
+        recognitionTask = nil
+        recognitionRequest = nil
+
+        do {
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.record, mode: .measurement, options: .duckOthers)
+            try session.setActive(true, options: .notifyOthersOnDeactivation)
+        } catch {
+            showError("无法启动录音：\(error.localizedDescription)")
+            return
+        }
+
+        let request = SFSpeechAudioBufferRecognitionRequest()
+        request.shouldReportPartialResults = true
+        recognitionRequest = request
+
+        let inputNode = audioEngine.inputNode
+        inputNode.removeTap(onBus: 0)
+        inputNode.installTap(onBus: 0, bufferSize: 1024, format: inputNode.outputFormat(forBus: 0)) { [weak self] buffer, _ in
+            self?.recognitionRequest?.append(buffer)
+        }
+
+        audioEngine.prepare()
+        do {
+            try audioEngine.start()
+            isRecording = true
+            statusText = "正在识别，再点一次结束…"
+        } catch {
+            showError("录音引擎启动失败：\(error.localizedDescription)")
+            return
+        }
+
+        guard let sr = speechRecognizer else { return }
+        recognitionTask = sr.recognitionTask(with: request) { [weak self] result, error in
+            guard let self else { return }
+            Task { @MainActor in
+                if let result {
+                    self.recognizedText = result.bestTranscription.formattedString
+                    if result.isFinal && !self.hasSaved {
+                        self.hasSaved = true
+                        self.stopRecording(save: true)
+                    }
+                }
+                if let error {
+                    let code = (error as NSError).code
+                    // 忽略正常结束时系统产生的伪错误（301=无内容, 203=取消）
+                    if code != 301 && code != 203 && !self.hasSaved {
+                        self.stopRecording(save: false)
+                        self.showError("语音识别出错，请重试。")
+                    } else {
+                        self.cleanupEngine()
+                    }
+                }
+            }
+        }
+    }
+
+    func stopRecording(save: Bool) {
+        guard isRecording || audioEngine.isRunning else {
+            isRecording = false
+            return
+        }
+        isRecording = false
+
+        recognitionRequest?.endAudio()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+            self?.cleanupEngine()
+        }
+
+        if save, !recognizedText.isEmpty, !hasSaved {
+            hasSaved = true
+            let text = recognizedText
+            if let amount = extractAmount(from: text), amount > 0 {
+                let type: TransactionType = incomeKeywords.contains(where: { text.contains($0) }) ? .income : .expense
+                onTransactionSaved?(amount, type, text)
+                statusText = "识别完成，已自动生成记录。"
+            } else {
+                showError("未识别到有效金额，请说得更明确一点（如：午饭 32 元）。")
+            }
+        }
+    }
+
+    private func cleanupEngine() {
+        if audioEngine.isRunning {
+            audioEngine.stop()
+            audioEngine.inputNode.removeTap(onBus: 0)
+        }
+        recognitionTask?.cancel()
+        recognitionTask = nil
+        recognitionRequest = nil
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    }
+
+    private func extractAmount(from text: String) -> Double? {
+        let regex = try? NSRegularExpression(pattern: "([0-9]+(?:\\.[0-9]+)?)")
+        let range = NSRange(text.startIndex..., in: text)
+        guard let match = regex?.firstMatch(in: text, range: range),
+              let r = Range(match.range(at: 1), in: text) else { return nil }
+        return Double(String(text[r]))
+    }
+
+    private func showError(_ msg: String) {
+        errorMessage = msg
+        showingError = true
+        isRecording = false
+    }
+
+    private var incomeKeywords: [String] {
+        ["工资", "报销", "收益", "奖金", "分红", "收入", "理财", "利息"]
+    }
+}
+
+// MARK: - DashboardView
 struct DashboardView: View {
     @EnvironmentObject private var themeSettings: ThemeSettings
     @Query(sort: \Transaction.date, order: .reverse) private var transactions: [Transaction]
@@ -106,7 +302,6 @@ struct DashboardView: View {
                     tint: themeColors.successColor,
                     themeColors: themeColors
                 )
-
                 DashboardMetricCard(
                     title: "本月支出",
                     value: monthExpense.formatted(.currency(code: "CNY")),
@@ -228,6 +423,7 @@ struct DashboardView: View {
     }
 }
 
+// MARK: - 仪表盘子组件
 private struct DashboardMetricCard: View {
     let title: String
     let value: String
@@ -239,7 +435,6 @@ private struct DashboardMetricCard: View {
             Text(title)
                 .font(.system(size: AppTheme.fontSizeCaption, weight: .medium))
                 .foregroundStyle(themeColors.textSecondary)
-
             Text(value)
                 .font(.system(size: 24, weight: .bold))
                 .foregroundStyle(tint)
@@ -299,7 +494,6 @@ private struct DashboardTransactionRow: View {
                     .font(.system(size: AppTheme.fontSizeBody, weight: .semibold))
                     .foregroundStyle(themeColors.textPrimary)
                     .lineLimit(1)
-
                 Text(transaction.date.formatted(date: .numeric, time: .shortened))
                     .font(.system(size: AppTheme.fontSizeCaption))
                     .foregroundStyle(themeColors.textSecondary)
@@ -321,39 +515,37 @@ private struct DashboardTransactionRow: View {
     }
 }
 
+// MARK: - 语音输入视图（重构版，使用 SpeechRecorderManager）
 struct VoiceInputView: View {
     @Environment(\.modelContext) private var modelContext
 
     let categories: [Category]
     let themeColors: ThemeColorSet
 
-    @State private var isRecording = false
-    @State private var recognizedText = ""
-    @State private var statusText = "点下面的按钮开始语音记账，例如：午饭 32 元"
-    @State private var showingErrorAlert = false
-    @State private var errorMessage = ""
-
-    @State private var audioEngine = AVAudioEngine()
-    @State private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
-    @State private var recognitionTask: SFSpeechRecognitionTask?
-
-    private let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "zh-CN"))
+    // 修复：StateObject 确保 Manager 在 View 生命周期内只创建一次
+    @StateObject private var recorder = SpeechRecorderManager()
 
     var body: some View {
         VStack(spacing: AppTheme.spacingLarge) {
+            // 录音按钮：单击切换录音状态
             Button {
-                isRecording ? stopRecording(saveResult: true) : requestPermissionsAndStart()
+                recorder.toggleRecording()
             } label: {
                 ZStack {
                     Circle()
-                        .fill((isRecording ? themeColors.errorColor : themeColors.primaryColor).opacity(0.16))
+                        .fill((recorder.isRecording ? themeColors.errorColor : themeColors.primaryColor).opacity(0.16))
                         .frame(width: 138, height: 138)
 
                     Circle()
-                        .fill(isRecording ? themeColors.errorColor : themeColors.primaryColor)
+                        .fill(recorder.isRecording ? themeColors.errorColor : themeColors.primaryColor)
                         .frame(width: 94, height: 94)
+                        .scaleEffect(recorder.isRecording ? 1.06 : 1.0)
+                        .animation(recorder.isRecording
+                            ? .easeInOut(duration: 0.7).repeatForever(autoreverses: true)
+                            : .default,
+                                   value: recorder.isRecording)
 
-                    Image(systemName: isRecording ? "waveform" : "mic.fill")
+                    Image(systemName: recorder.isRecording ? "waveform" : "mic.fill")
                         .font(.system(size: 34, weight: .bold))
                         .foregroundStyle(.white)
                 }
@@ -361,169 +553,59 @@ struct VoiceInputView: View {
             .buttonStyle(.plain)
 
             VStack(spacing: 10) {
-                Text(isRecording ? "正在聆听，再点一次即可结束" : "语音记账")
+                Text(recorder.isRecording ? "正在聆听，再点一次结束" : "语音记账")
                     .font(.system(size: 18, weight: .bold))
                     .foregroundStyle(themeColors.textPrimary)
 
-                Text(recognizedText.isEmpty ? statusText : recognizedText)
+                Text(recorder.recognizedText.isEmpty ? recorder.statusText : recorder.recognizedText)
                     .font(.system(size: AppTheme.fontSizeBody))
-                    .foregroundStyle(recognizedText.isEmpty ? themeColors.textSecondary : themeColors.primaryColor)
+                    .foregroundStyle(recorder.recognizedText.isEmpty ? themeColors.textSecondary : themeColors.primaryColor)
                     .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
             }
 
-            if !recognizedText.isEmpty {
-                Text("停止录音后会自动尝试识别金额、分类和收支类型。")
+            if !recorder.recognizedText.isEmpty {
+                Text("停止后将自动识别金额和分类并保存记录。")
                     .font(.system(size: AppTheme.fontSizeCaption))
                     .foregroundStyle(themeColors.textTertiary)
                     .multilineTextAlignment(.center)
             }
         }
         .frame(maxWidth: .infinity)
-        .alert("语音记账失败", isPresented: $showingErrorAlert) {
+        .onAppear {
+            // 注入保存回调
+            recorder.onTransactionSaved = { [weak recorder] amount, type, text in
+                guard recorder != nil else { return }
+                let matchedCategory = matchCategory(from: text, type: type)
+                let transaction = Transaction(
+                    amount: amount,
+                    date: Date(),
+                    note: text,
+                    type: type,
+                    category: matchedCategory
+                )
+                modelContext.insert(transaction)
+                try? modelContext.save()
+            }
+        }
+        .alert("语音记账失败", isPresented: $recorder.showingError) {
             Button("确定", role: .cancel) {}
         } message: {
-            Text(errorMessage)
+            Text(recorder.errorMessage)
         }
     }
 
-    @MainActor
-    private func requestPermissionsAndStart() {
-        recognizedText = ""
-        guard !isRecording else { return }
-
-        guard speechRecognizer != nil else {
-            showError("当前设备不支持中文语音识别。")
-            return
-        }
-
-        SFSpeechRecognizer.requestAuthorization { status in
-            guard status == .authorized else {
-                Task { @MainActor in
-                    showError("请先打开语音识别权限。")
-                }
-                return
-            }
-
-            AVAudioSession.sharedInstance().requestRecordPermission { granted in
-                Task { @MainActor in
-                    guard granted else {
-                        showError("请先打开麦克风权限。")
-                        return
-                    }
-                    startRecording()
-                }
-            }
-        }
-    }
-
-    @MainActor
-    private func startRecording() {
-        recognitionTask?.cancel()
-        recognitionTask = nil
-
-        do {
-            let audioSession = AVAudioSession.sharedInstance()
-            try audioSession.setCategory(.playAndRecord, mode: .measurement, options: [.duckOthers, .defaultToSpeaker])
-            try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
-        } catch {
-            showError("无法启动录音：\(error.localizedDescription)")
-            return
-        }
-
-        let request = SFSpeechAudioBufferRecognitionRequest()
-        request.shouldReportPartialResults = true
-        recognitionRequest = request
-
-        let inputNode = audioEngine.inputNode
-        inputNode.removeTap(onBus: 0)
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: inputNode.outputFormat(forBus: 0)) { buffer, _ in
-            self.recognitionRequest?.append(buffer)
-        }
-
-        audioEngine.prepare()
-
-        do {
-            try audioEngine.start()
-            isRecording = true
-            statusText = "正在识别你的语音…"
-        } catch {
-            showError("录音启动失败：\(error.localizedDescription)")
-            return
-        }
-
-        recognitionTask = speechRecognizer?.recognitionTask(with: request) { result, error in
-            Task { @MainActor in
-                if let result {
-                    recognizedText = result.bestTranscription.formattedString
-                }
-
-                if error != nil {
-                    stopRecording(saveResult: false)
-                    showError("语音识别发生错误，请重试。")
-                }
-            }
-        }
-    }
-
-    @MainActor
-    private func stopRecording(saveResult: Bool) {
-        isRecording = false
-
-        if audioEngine.isRunning {
-            audioEngine.stop()
-            audioEngine.inputNode.removeTap(onBus: 0)
-        }
-
-        recognitionRequest?.endAudio()
-        recognitionTask?.cancel()
-        recognitionTask = nil
-        recognitionRequest = nil
-
-        guard saveResult, !recognizedText.isEmpty else {
-            return
-        }
-
-        saveRecognizedTransaction()
-    }
-
-    @MainActor
-    private func saveRecognizedTransaction() {
-        guard let amount = extractAmount(from: recognizedText), amount > 0 else {
-            showError("没有识别到有效金额，请说得更明确一点。")
-            return
-        }
-
-        let type: TransactionType = incomeKeywords.contains(where: { recognizedText.contains($0) }) ? .income : .expense
-
-        guard let category = matchCategory(from: recognizedText, type: type) else {
-            showError("没有可用分类，请先在设置里添加分类。")
-            return
-        }
-
-        let transaction = Transaction(
-            amount: amount,
-            date: Date(),
-            note: recognizedText,
-            type: type,
-            category: category
-        )
-
-        modelContext.insert(transaction)
-        try? modelContext.save()
-        statusText = "识别完成，已经自动生成一笔记录。"
-    }
-
-    private func matchCategory(from text: String, type: TransactionType) -> Category? {
+    private func matchCategory(from text: String, type: TransactionType) -> Category {
         let keywordMap: [String: [String]] = [
-            "餐饮": ["饭", "餐", "咖啡", "奶茶", "早餐", "午餐", "晚餐", "外卖"],
-            "交通": ["地铁", "公交", "打车", "高铁", "交通", "油费"],
-            "购物": ["买", "购物", "淘宝", "京东", "超市", "商场"],
-            "娱乐": ["电影", "唱歌", "游戏", "娱乐", "门票"],
-            "住房": ["房租", "物业", "住房", "水电"],
-            "医疗": ["医院", "药", "看病", "体检"],
-            "教育": ["书", "课程", "学费", "培训"],
-            "工资": ["工资", "发薪", "薪资"],
-            "理财": ["基金", "理财", "收益", "分红", "利息"]
+            "餐饮": ["饭", "餐", "咖啡", "奶茶", "早餐", "午餐", "晚餐", "外卖", "食"],
+            "交通": ["地铁", "公交", "打车", "高铁", "交通", "油费", "滴滴", "出租"],
+            "购物": ["买", "购物", "淘宝", "京东", "超市", "商场", "衣服", "鞋"],
+            "娱乐": ["电影", "唱歌", "游戏", "娱乐", "门票", "演唱会", "KTV"],
+            "住房": ["房租", "物业", "住房", "水电", "燃气"],
+            "医疗": ["医院", "药", "看病", "体检", "诊所"],
+            "教育": ["书", "课程", "学费", "培训", "学习"],
+            "工资": ["工资", "发薪", "薪资", "到账"],
+            "理财": ["基金", "理财", "收益", "分红", "利息", "股票"]
         ]
 
         for category in categories where category.type == type {
@@ -532,36 +614,11 @@ struct VoiceInputView: View {
                 return category
             }
         }
-
-        return categories.first { $0.type == type } ?? categories.first
-    }
-
-    private func extractAmount(from text: String) -> Double? {
-        let pattern = "([0-9]+(?:\\.[0-9]+)?)"
-        let regex = try? NSRegularExpression(pattern: pattern)
-        let range = NSRange(text.startIndex..., in: text)
-
-        guard
-            let match = regex?.firstMatch(in: text, range: range),
-            let valueRange = Range(match.range(at: 1), in: text)
-        else {
-            return nil
-        }
-
-        return Double(String(text[valueRange]))
-    }
-
-    @MainActor
-    private func showError(_ message: String) {
-        errorMessage = message
-        showingErrorAlert = true
-    }
-
-    private var incomeKeywords: [String] {
-        ["工资", "报销", "收益", "奖金", "分红", "收入"]
+        return categories.first { $0.type == type } ?? categories[0]
     }
 }
 
+// MARK: - 文本快捷记账（保持不变）
 struct TextQuickEntryView: View {
     @Environment(\.modelContext) private var modelContext
 
@@ -607,10 +664,9 @@ struct TextQuickEntryView: View {
                 Text("分类")
                     .font(.system(size: AppTheme.fontSizeCaption, weight: .medium))
                     .foregroundStyle(themeColors.textSecondary)
-
                 Picker("分类", selection: $selectedCategoryID) {
-                    ForEach(availableCategories, id: \.id) { category in
-                        Text(category.name).tag(Optional(category.id))
+                    ForEach(availableCategories, id: \.id) { cat in
+                        Text(cat.name).tag(Optional(cat.id))
                     }
                 }
                 .pickerStyle(.menu)
@@ -652,24 +708,19 @@ struct TextQuickEntryView: View {
             showingErrorAlert = true
             return
         }
-
         guard let category = availableCategories.first(where: { $0.id == selectedCategoryID }) ?? availableCategories.first else {
             errorMessage = "请先创建分类。"
             showingErrorAlert = true
             return
         }
-
-        let transaction = Transaction(
+        modelContext.insert(Transaction(
             amount: amountValue,
             date: Date(),
             note: note.trimmingCharacters(in: .whitespacesAndNewlines),
             type: type,
             category: category
-        )
-
-        modelContext.insert(transaction)
+        ))
         try? modelContext.save()
-
         amount = ""
         note = ""
         selectedCategoryID = availableCategories.first?.id
