@@ -7,6 +7,9 @@ options:
 settings:
   SWIFT_VERSION: "5.9"
   IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+  CODE_SIGNING_ALLOWED: "NO"
+  CODE_SIGN_IDENTITY: ""
+  CODE_SIGNING_REQUIRED: "NO"
 
 schemes:
   ExpenseTracker:
@@ -43,9 +46,14 @@ targets:
 
     resources:
       - path: "./Assets.xcassets"
+      - path: "./AppLogo-1024.png"
+        optional: true
 
     settings:
       PRODUCT_NAME: ExpenseTracker
       PRODUCT_BUNDLE_IDENTIFIER: com.piao.expenses
       SWIFT_VERSION: "5.9"
       IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+      CODE_SIGNING_ALLOWED: "NO"
+      CODE_SIGN_IDENTITY: ""
+      CODE_SIGNING_REQUIRED: "NO"
