@@ -20,11 +20,11 @@ jobs:
         working-directory: ./iOS-Expense-Tracker
         run: xcodegen generate
 
-      - name: Run unit tests
+      - name: Build test bundle
         working-directory: ./iOS-Expense-Tracker
         run: |
-          xcodebuild test \
+          xcodebuild build-for-testing \
             -project ExpenseTracker.xcodeproj \
             -scheme ExpenseTracker \
-            -destination 'platform=macOS,name=My Mac' \
+            -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO
