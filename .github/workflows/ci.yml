@@ -26,5 +26,5 @@ jobs:
           xcodebuild test \
             -project ExpenseTracker.xcodeproj \
             -scheme ExpenseTracker \
-            -destination 'platform=macOS,arch=arm64,variant=Designed for [iPad,iPhone],name=My Mac' \
+            -destination 'platform=macOS,name=My Mac' \
             CODE_SIGNING_ALLOWED=NO
