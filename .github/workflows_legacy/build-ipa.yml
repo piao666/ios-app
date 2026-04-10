@@ -1,0 +1,83 @@
+name: Build IPA for Side-loading
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-ipa:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python for icon generation
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install Pillow
+        run: pip install Pillow
+
+      - name: Generate App Icons
+        working-directory: ./iOS-Expense-Tracker
+        run: |
+          # 检查源 LOGO 是否存在
+          if [ -f "AppLogo-1024.png" ]; then
+            echo "📖 找到源 LOGO，生成所有尺寸..."
+            python3 generate_icons.py AppLogo-1024.png
+          else
+            echo "⚠️  源 LOGO 不存在，使用默认占位符"
+            mkdir -p Assets.xcassets/AppIcon.appiconset
+            # 创建简单的占位符 PNG
+            python3 - << 'EOF'
+          import os
+          from PIL import Image, ImageDraw
+          size = 1024
+          img = Image.new('RGB', (size, size), color=(200, 150, 200))
+          img.save('AppLogo-1024.png', 'PNG')
+          print("✅ 已创建默认占位符 LOGO")
+          EOF
+            python3 generate_icons.py AppLogo-1024.png
+          fi
+
+      - name: Generate Xcode Project with XcodeGen
+        working-directory: ./iOS-Expense-Tracker
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Build Project
+        working-directory: ./iOS-Expense-Tracker
+        run: |
+          xcodebuild clean build \
+            -project ExpenseTracker.xcodeproj \
+            -scheme ExpenseTracker \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            -derivedDataPath build
+
+      - name: Package IPA
+        working-directory: ./iOS-Expense-Tracker
+        run: |
+          # 检查构建产物是否存在
+          if [ -d "build/Build/Products/Release-iphoneos/ExpenseTracker.app" ]; then
+            mkdir -p Payload
+            cp -r build/Build/Products/Release-iphoneos/ExpenseTracker.app Payload/
+            zip -r ExpenseTracker.ipa Payload
+            echo "✅ IPA 打包成功"
+          else
+            echo "❌ 找不到构建产物，请检查上方构建日志"
+            exit 1
+          fi
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ExpenseTracker-App
+          path: iOS-Expense-Tracker/ExpenseTracker.ipa
+          retention-days: 7

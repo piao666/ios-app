@@ -2,7 +2,7 @@ name: Build IPA for Side-loading
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -12,43 +12,30 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Python for icon generation
-        uses: actions/setup-python@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install Pillow
         run: pip install Pillow
 
-      - name: Generate App Icons
+      - name: Prepare app icons
         working-directory: ./iOS-Expense-Tracker
         run: |
-          # 检查源 LOGO 是否存在
-          if [ -f "AppLogo-1024.png" ]; then
-            echo "📖 找到源 LOGO，生成所有尺寸..."
-            python3 generate_icons.py AppLogo-1024.png
-          else
-            echo "⚠️  源 LOGO 不存在，使用默认占位符"
-            mkdir -p Assets.xcassets/AppIcon.appiconset
-            # 创建简单的占位符 PNG
-            python3 - << 'EOF'
-          import os
-          from PIL import Image, ImageDraw
-          size = 1024
-          img = Image.new('RGB', (size, size), color=(200, 150, 200))
-          img.save('AppLogo-1024.png', 'PNG')
-          print("✅ 已创建默认占位符 LOGO")
-          EOF
-            python3 generate_icons.py AppLogo-1024.png
+          if [ ! -f "AppLogo-1024.png" ]; then
+            python3 -c "from PIL import Image; Image.new('RGB', (1024, 1024), color=(42, 122, 255)).save('AppLogo-1024.png', 'PNG'); print('Generated placeholder logo.')"
           fi
+          python3 generate_icons.py AppLogo-1024.png
 
-      - name: Generate Xcode Project with XcodeGen
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
         working-directory: ./iOS-Expense-Tracker
-        run: |
-          brew install xcodegen
-          xcodegen generate
+        run: xcodegen generate
 
-      - name: Build Project
+      - name: Build release app
         working-directory: ./iOS-Expense-Tracker
         run: |
           xcodebuild clean build \
@@ -64,18 +51,17 @@ jobs:
       - name: Package IPA
         working-directory: ./iOS-Expense-Tracker
         run: |
-          # 检查构建产物是否存在
-          if [ -d "build/Build/Products/Release-iphoneos/ExpenseTracker.app" ]; then
-            mkdir -p Payload
-            cp -r build/Build/Products/Release-iphoneos/ExpenseTracker.app Payload/
-            zip -r ExpenseTracker.ipa Payload
-            echo "✅ IPA 打包成功"
-          else
-            echo "❌ 找不到构建产物，请检查上方构建日志"
+          APP_PATH="build/Build/Products/Release-iphoneos/ExpenseTracker.app"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "Build output not found: $APP_PATH"
             exit 1
           fi
+          rm -rf Payload ExpenseTracker.ipa
+          mkdir -p Payload
+          cp -R "$APP_PATH" Payload/
+          zip -qry ExpenseTracker.ipa Payload
 
-      - name: Upload Artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ExpenseTracker-App

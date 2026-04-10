@@ -2,26 +2,28 @@ name: ExpenseTracker
 options:
   bundleIdPrefix: com.piao
   deploymentTarget:
-    iOS: "16.0"
+    iOS: "17.0"
 
 settings:
-  SWIFT_VERSION: "5.9"
-  IPHONEOS_DEPLOYMENT_TARGET: "16.0"
-  CODE_SIGNING_ALLOWED: "NO"
-  CODE_SIGN_IDENTITY: ""
-  CODE_SIGNING_REQUIRED: "NO"
+  base:
+    SWIFT_VERSION: "5.9"
+    IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+    CODE_SIGNING_ALLOWED: "NO"
+    CODE_SIGN_IDENTITY: ""
+    CODE_SIGNING_REQUIRED: "NO"
 
 schemes:
   ExpenseTracker:
     build:
       targets:
         ExpenseTracker: all
+        ExpenseTrackerTests: [test]
     run:
       config: Debug
     test:
       config: Debug
       targets:
-        - ExpenseTracker
+        - name: ExpenseTrackerTests
     profile:
       config: Release
     analyze:
@@ -33,27 +35,33 @@ targets:
   ExpenseTracker:
     type: application
     platform: iOS
-    deploymentTarget: "16.0"
+    deploymentTarget: "17.0"
     info:
-      path: ./Info.plist
-
+      path: ./Config/Info.plist
     sources:
-      - path: "./AppDelegate.swift"
-      - path: "./ExpenseTrackerApp.swift"
-      - path: "./Theme.swift"
-      - path: "./Models"
-      - path: "./Views"
-
+      - path: "./AppMain.swift"
+      - path: "./SourcesClean"
     resources:
       - path: "./Assets.xcassets"
+      - path: "./LaunchScreen.storyboard"
       - path: "./AppLogo-1024.png"
         optional: true
-
     settings:
-      PRODUCT_NAME: ExpenseTracker
-      PRODUCT_BUNDLE_IDENTIFIER: com.piao.expenses
-      SWIFT_VERSION: "5.9"
-      IPHONEOS_DEPLOYMENT_TARGET: "16.0"
-      CODE_SIGNING_ALLOWED: "NO"
-      CODE_SIGN_IDENTITY: ""
-      CODE_SIGNING_REQUIRED: "NO"
+      base:
+        PRODUCT_NAME: ExpenseTracker
+        PRODUCT_BUNDLE_IDENTIFIER: com.piao.expenses
+        GENERATE_INFOPLIST_FILE: "NO"
+
+  ExpenseTrackerTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: "./TestsClean/ExpenseTrackerTests.swift"
+    dependencies:
+      - target: ExpenseTracker
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.piao.expensesTests
+        GENERATE_INFOPLIST_FILE: "YES"
+        CODE_SIGNING_ALLOWED: "NO"

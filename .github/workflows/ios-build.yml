@@ -1,8 +1,9 @@
-name: iOS Build and Test
+name: iOS Build
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
+  pull_request:
   workflow_dispatch:
 
 jobs:
@@ -12,12 +13,19 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Generate Xcode Project with XcodeGen
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        working-directory: ./iOS-Expense-Tracker
+        run: xcodegen generate
+
+      - name: Build project
         working-directory: ./iOS-Expense-Tracker
         run: |
-          brew install xcodegen
-          xcodegen generate
-
-      - name: Build Project
-        working-directory: ./iOS-Expense-Tracker
-        run: xcodebuild clean build -project ExpenseTracker.xcodeproj -scheme ExpenseTracker -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO
+          xcodebuild clean build \
+            -project ExpenseTracker.xcodeproj \
+            -scheme ExpenseTracker \
+            -configuration Debug \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO
