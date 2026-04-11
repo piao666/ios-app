@@ -52,6 +52,10 @@ targets:
       TARGETED_DEVICE_FAMILY: "1,2"
       INFOPLIST_FILE: Config/Info.plist
       GENERATE_INFOPLIST_FILE: "NO"
+      INFOPLIST_KEY_CFBundleDisplayName: 小海帐
+      INFOPLIST_KEY_CFBundleName: 小海帐
+      INFOPLIST_KEY_NSMicrophoneUsageDescription: 小海帐需要麦克风权限，用于语音记账。
+      INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: 小海帐需要语音识别权限，把你的语音转成记账内容。
       CODE_SIGNING_ALLOWED: "NO"
       CODE_SIGN_IDENTITY: ""
       CODE_SIGNING_REQUIRED: "NO"
