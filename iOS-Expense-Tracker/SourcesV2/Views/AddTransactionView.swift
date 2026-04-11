@@ -96,15 +96,19 @@ struct AddTransactionView: View {
                         .focused($focusedField, equals: .note)
                 }
 
-                Button(editingTransaction == nil ? "保存" : "更新") {
+                Button {
                     submitTransaction()
+                } label: {
+                    Text(editingTransaction == nil ? "保存" : "更新")
+                        .font(.system(size: AppTheme.fontSizeBody, weight: .bold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(themeColors.primaryColor)
+                        .foregroundStyle(.white)
+                        .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadiusSmall))
+                        .contentShape(Rectangle())
                 }
-                .font(.system(size: AppTheme.fontSizeBody, weight: .bold))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .background(themeColors.primaryColor)
-                .foregroundStyle(.white)
-                .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadiusSmall))
+                .buttonStyle(.plain)
                 .disabled(isSubmitting)
                 .opacity(isSubmitting ? 0.85 : 1)
             }

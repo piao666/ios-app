@@ -698,15 +698,19 @@ struct TextQuickEntryView: View {
 
             DashboardInputField(title: "备注", text: $note, placeholder: "输入备注")
 
-            Button("保存这笔记录") {
+            Button {
                 submitTransaction()
+            } label: {
+                Text("保存这笔记录")
+                    .font(.system(size: AppTheme.fontSizeBody, weight: .bold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(themeColors.primaryColor)
+                    .foregroundStyle(.white)
+                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadiusSmall))
+                    .contentShape(Rectangle())
             }
-            .font(.system(size: AppTheme.fontSizeBody, weight: .bold))
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
-            .background(themeColors.primaryColor)
-            .foregroundStyle(.white)
-            .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadiusSmall))
+            .buttonStyle(.plain)
             .disabled(isSubmitting)
             .opacity(isSubmitting ? 0.85 : 1)
         }

@@ -40,6 +40,15 @@ targets:
         CFBundleDevelopmentRegion: zh_CN
         CFBundleDisplayName: 小海帐
         CFBundleName: 小海帐
+        CFBundleShortVersionString: "1.0.3"
+        CFBundleVersion: "3"
+        CFBundleIconName: AppIcon
+        CFBundleIcons:
+          CFBundlePrimaryIcon:
+            CFBundleIconName: AppIcon
+        CFBundleIcons~ipad:
+          CFBundlePrimaryIcon:
+            CFBundleIconName: AppIcon
         LSRequiresIPhoneOS: true
         UILaunchStoryboardName: LaunchScreen
         UIApplicationSupportsIndirectInputEvents: true
