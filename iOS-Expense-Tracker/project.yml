@@ -2,11 +2,11 @@ name: ExpenseTracker
 options:
   bundleIdPrefix: com.piao
   deploymentTarget:
-    iOS: "16.0"
+    iOS: "17.0"
 
 settings:
   SWIFT_VERSION: "5.9"
-  IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+  IPHONEOS_DEPLOYMENT_TARGET: "17.0"
   CODE_SIGNING_ALLOWED: "NO"
   CODE_SIGN_IDENTITY: ""
   CODE_SIGNING_REQUIRED: "NO"
@@ -21,7 +21,7 @@ schemes:
     test:
       config: Debug
       targets:
-        - ExpenseTracker
+        - ExpenseTrackerTests
     profile:
       config: Release
     analyze:
@@ -33,27 +33,65 @@ targets:
   ExpenseTracker:
     type: application
     platform: iOS
-    deploymentTarget: "16.0"
+    deploymentTarget: "17.0"
     info:
-      path: ./Info.plist
-
+      path: ./Config/GeneratedInfo.plist
+      properties:
+        CFBundleDevelopmentRegion: zh_CN
+        CFBundleDisplayName: 小海帐
+        CFBundleName: 小海帐
+        CFBundleShortVersionString: "1.0.3"
+        CFBundleVersion: "3"
+        CFBundleIconName: AppIcon
+        CFBundleIcons:
+          CFBundlePrimaryIcon:
+            CFBundleIconName: AppIcon
+        CFBundleIcons~ipad:
+          CFBundlePrimaryIcon:
+            CFBundleIconName: AppIcon
+        LSRequiresIPhoneOS: true
+        UILaunchStoryboardName: LaunchScreen
+        UIApplicationSupportsIndirectInputEvents: true
+        NSMicrophoneUsageDescription: 小海帐需要麦克风权限，用于语音记账。
+        NSSpeechRecognitionUsageDescription: 小海帐需要语音识别权限，把你的语音转成记账内容。
+        UIRequiredDeviceCapabilities:
+          - arm64
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UIDeviceFamily:
+          - 1
+          - 2
     sources:
-      - path: "./AppDelegate.swift"
-      - path: "./ExpenseTrackerApp.swift"
-      - path: "./Theme.swift"
-      - path: "./Models"
-      - path: "./Views"
-
+      - path: ./AppMain.swift
+      - path: ./SourcesV2
     resources:
-      - path: "./Assets.xcassets"
-      - path: "./AppLogo-1024.png"
+      - path: ./Assets.xcassets
+      - path: ./LaunchScreen.storyboard
+      - path: ./AppLogo-1024.png
         optional: true
-
     settings:
       PRODUCT_NAME: ExpenseTracker
       PRODUCT_BUNDLE_IDENTIFIER: com.piao.expenses
+      ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
       SWIFT_VERSION: "5.9"
-      IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+      IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+      TARGETED_DEVICE_FAMILY: "1,2"
       CODE_SIGNING_ALLOWED: "NO"
       CODE_SIGN_IDENTITY: ""
       CODE_SIGNING_REQUIRED: "NO"
+
+  ExpenseTrackerTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: ./TestsV2
+    dependencies:
+      - target: ExpenseTracker
+    settings:
+      GENERATE_INFOPLIST_FILE: YES
+      PRODUCT_BUNDLE_IDENTIFIER: com.piao.expenses.tests

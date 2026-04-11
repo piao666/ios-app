@@ -13,9 +13,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Python for icon generation
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install Pillow
         run: pip install Pillow
@@ -23,22 +23,17 @@ jobs:
       - name: Generate App Icons
         working-directory: ./iOS-Expense-Tracker
         run: |
-          # 检查源 LOGO 是否存在
-          if [ -f "AppLogo-1024.png" ]; then
-            echo "📖 找到源 LOGO，生成所有尺寸..."
+          if [ -f "Assets.xcassets/BrandLogo.imageset/brand-logo.png" ]; then
+            echo "Found BrandLogo source, generating app icons"
+            cp Assets.xcassets/BrandLogo.imageset/brand-logo.png AppLogo-1024.png
+            python3 generate_icons.py Assets.xcassets/BrandLogo.imageset/brand-logo.png
+          elif [ -f "AppLogo-1024.png" ]; then
+            echo "Found AppLogo source, generating app icons"
             python3 generate_icons.py AppLogo-1024.png
           else
-            echo "⚠️  源 LOGO 不存在，使用默认占位符"
+            echo "No source logo found, generating placeholder icon"
             mkdir -p Assets.xcassets/AppIcon.appiconset
-            # 创建简单的占位符 PNG
-            python3 - << 'EOF'
-          import os
-          from PIL import Image, ImageDraw
-          size = 1024
-          img = Image.new('RGB', (size, size), color=(200, 150, 200))
-          img.save('AppLogo-1024.png', 'PNG')
-          print("✅ 已创建默认占位符 LOGO")
-          EOF
+            python3 -c "from PIL import Image; Image.new('RGB', (1024, 1024), color=(200, 150, 200)).save('AppLogo-1024.png', 'PNG'); print('created placeholder icon')"
             python3 generate_icons.py AppLogo-1024.png
           fi
 
@@ -64,14 +59,13 @@ jobs:
       - name: Package IPA
         working-directory: ./iOS-Expense-Tracker
         run: |
-          # 检查构建产物是否存在
           if [ -d "build/Build/Products/Release-iphoneos/ExpenseTracker.app" ]; then
             mkdir -p Payload
             cp -r build/Build/Products/Release-iphoneos/ExpenseTracker.app Payload/
             zip -r ExpenseTracker.ipa Payload
-            echo "✅ IPA 打包成功"
+            echo "IPA packaged successfully"
           else
-            echo "❌ 找不到构建产物，请检查上方构建日志"
+            echo "Build artifact not found"
             exit 1
           fi
 

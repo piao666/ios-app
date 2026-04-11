@@ -8,6 +8,7 @@ import os
 import sys
 import io
 from PIL import Image
+from PIL import ImageOps
 
 # 修复 Windows 编码问题
 if sys.platform == 'win32':
@@ -39,6 +40,12 @@ def generate_app_icons(source_image_path, output_dir):
 
         print(f"📖 打开源图片: {source_image_path}")
         source_img = Image.open(source_image_path).convert('RGBA')
+        source_square = ImageOps.fit(
+            source_img,
+            (1024, 1024),
+            method=Image.Resampling.LANCZOS,
+            centering=(0.5, 0.5)
+        )
 
         # 确保输出目录存在
         os.makedirs(output_dir, exist_ok=True)
@@ -48,7 +55,7 @@ def generate_app_icons(source_image_path, output_dir):
 
         for filename, (width, height) in sizes.items():
             # 缩放图片
-            resized_img = source_img.resize((width, height), Image.Resampling.LANCZOS)
+            resized_img = source_square.resize((width, height), Image.Resampling.LANCZOS)
 
             # 转换为 RGB（PNG 格式）
             output_path = os.path.join(output_dir, filename)
