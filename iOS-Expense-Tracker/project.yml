@@ -35,7 +35,27 @@ targets:
     platform: iOS
     deploymentTarget: "17.0"
     info:
-      path: ./Config/Info.plist
+      path: ./Config/GeneratedInfo.plist
+      properties:
+        CFBundleDevelopmentRegion: zh_CN
+        CFBundleDisplayName: 小海帐
+        CFBundleName: 小海帐
+        LSRequiresIPhoneOS: true
+        UILaunchStoryboardName: LaunchScreen
+        UIApplicationSupportsIndirectInputEvents: true
+        NSMicrophoneUsageDescription: 小海帐需要麦克风权限，用于语音记账。
+        NSSpeechRecognitionUsageDescription: 小海帐需要语音识别权限，把你的语音转成记账内容。
+        UIRequiredDeviceCapabilities:
+          - arm64
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UIDeviceFamily:
+          - 1
+          - 2
     sources:
       - path: ./AppMain.swift
       - path: ./SourcesV2
@@ -50,12 +70,6 @@ targets:
       SWIFT_VERSION: "5.9"
       IPHONEOS_DEPLOYMENT_TARGET: "17.0"
       TARGETED_DEVICE_FAMILY: "1,2"
-      INFOPLIST_FILE: Config/Info.plist
-      GENERATE_INFOPLIST_FILE: "NO"
-      INFOPLIST_KEY_CFBundleDisplayName: 小海帐
-      INFOPLIST_KEY_CFBundleName: 小海帐
-      INFOPLIST_KEY_NSMicrophoneUsageDescription: 小海帐需要麦克风权限，用于语音记账。
-      INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: 小海帐需要语音识别权限，把你的语音转成记账内容。
       CODE_SIGNING_ALLOWED: "NO"
       CODE_SIGN_IDENTITY: ""
       CODE_SIGNING_REQUIRED: "NO"
