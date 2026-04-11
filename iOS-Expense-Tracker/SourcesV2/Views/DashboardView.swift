@@ -9,7 +9,6 @@ import SwiftUI
 // 使用 @MainActor 标记会在某些 iOS 17 设备上引发 EXC_BAD_ACCESS 闪退。
 // 解决方案：将音频引擎、识别任务全部封装进 ObservableObject，
 // 在 init() 里创建一次，生命周期由 SwiftUI 稳定管理。
-@MainActor
 final class SpeechRecorderManager: ObservableObject {
     @Published var isRecording = false
     @Published var recognizedText = ""
@@ -572,10 +571,9 @@ struct VoiceInputView: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .onAppear {
+        .task {
             // 注入保存回调
-            recorder.onTransactionSaved = { [weak recorder] amount, type, text in
-                guard recorder != nil else { return }
+            recorder.onTransactionSaved = { amount, type, text in
                 let matchedCategory = matchCategory(from: text, type: type)
                 let transaction = Transaction(
                     amount: amount,
@@ -614,7 +612,26 @@ struct VoiceInputView: View {
                 return category
             }
         }
-        return categories.first { $0.type == type } ?? categories[0]
+        return categories.first { $0.type == type }
+            ?? categories.first
+            ?? makeFallbackCategory(for: type)
+    }
+
+    private func makeFallbackCategory(for type: TransactionType) -> Category {
+        let template = Category.defaultCategories.first(where: { $0.type == type })
+            ?? Category.defaultCategories.first
+            ?? Category(name: "默认", icon: "tag.fill", colorHex: "2563EB", type: type, sortOrder: categories.count)
+
+        let category = Category(
+            name: template.name,
+            icon: template.icon,
+            colorHex: template.colorHex,
+            type: type,
+            sortOrder: categories.count
+        )
+        modelContext.insert(category)
+        try? modelContext.save()
+        return category
     }
 }
 
