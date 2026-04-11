@@ -23,8 +23,12 @@ jobs:
       - name: Generate App Icons
         working-directory: ./iOS-Expense-Tracker
         run: |
-          if [ -f "AppLogo-1024.png" ]; then
-            echo "Found source logo, generating app icons"
+          if [ -f "Assets.xcassets/BrandLogo.imageset/brand-logo.png" ]; then
+            echo "Found BrandLogo source, generating app icons"
+            cp Assets.xcassets/BrandLogo.imageset/brand-logo.png AppLogo-1024.png
+            python3 generate_icons.py Assets.xcassets/BrandLogo.imageset/brand-logo.png
+          elif [ -f "AppLogo-1024.png" ]; then
+            echo "Found AppLogo source, generating app icons"
             python3 generate_icons.py AppLogo-1024.png
           else
             echo "No source logo found, generating placeholder icon"

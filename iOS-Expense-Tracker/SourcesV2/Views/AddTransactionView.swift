@@ -18,6 +18,13 @@ struct AddTransactionView: View {
     @State private var showingErrorAlert = false
     @State private var errorMessage = ""
     @State private var didPrefill = false
+    @State private var isSubmitting = false
+    @FocusState private var focusedField: InputField?
+
+    private enum InputField {
+        case amount
+        case note
+    }
 
     init(editingTransaction: Transaction? = nil, onSaved: (() -> Void)? = nil) {
         self.editingTransaction = editingTransaction
@@ -61,6 +68,7 @@ struct AddTransactionView: View {
                 addField(title: "金额") {
                     TextField("输入金额", text: $amount)
                         .keyboardType(.decimalPad)
+                        .focused($focusedField, equals: .amount)
                 }
 
                 addField(title: "分类") {
@@ -85,10 +93,11 @@ struct AddTransactionView: View {
                 addField(title: "备注") {
                     TextField("输入备注", text: $note, axis: .vertical)
                         .lineLimit(3, reservesSpace: true)
+                        .focused($focusedField, equals: .note)
                 }
 
                 Button(editingTransaction == nil ? "保存" : "更新") {
-                    saveTransaction()
+                    submitTransaction()
                 }
                 .font(.system(size: AppTheme.fontSizeBody, weight: .bold))
                 .frame(maxWidth: .infinity)
@@ -96,9 +105,12 @@ struct AddTransactionView: View {
                 .background(themeColors.primaryColor)
                 .foregroundStyle(.white)
                 .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadiusSmall))
+                .disabled(isSubmitting)
+                .opacity(isSubmitting ? 0.85 : 1)
             }
             .padding(AppTheme.spacingLarge)
         }
+        .scrollDismissesKeyboard(.immediately)
         .background(themeColors.backgroundPrimary.ignoresSafeArea())
         .navigationTitle(pageTitle)
         .toolbar {
@@ -156,6 +168,14 @@ struct AddTransactionView: View {
         date = editingTransaction.date
         type = editingTransaction.type
         selectedCategoryID = editingTransaction.category.id
+    }
+
+    private func submitTransaction() {
+        guard !isSubmitting else { return }
+        focusedField = nil
+        isSubmitting = true
+        defer { isSubmitting = false }
+        saveTransaction()
     }
 
     private func saveTransaction() {

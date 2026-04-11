@@ -2,6 +2,7 @@ import AVFoundation
 import Speech
 import SwiftData
 import SwiftUI
+import UIKit
 
 // MARK: - 语音录音管理器（独立 class，生命周期稳定）
 // 修复根因：原代码把 AVAudioEngine 放在 SwiftUI View 的 @State 里，
@@ -648,6 +649,7 @@ struct TextQuickEntryView: View {
     @State private var selectedCategoryID: UUID?
     @State private var showingErrorAlert = false
     @State private var errorMessage = ""
+    @State private var isSubmitting = false
 
     private var availableCategories: [Category] {
         let matching = categories.filter { $0.type == type }
@@ -697,7 +699,7 @@ struct TextQuickEntryView: View {
             DashboardInputField(title: "备注", text: $note, placeholder: "输入备注")
 
             Button("保存这笔记录") {
-                saveTransaction()
+                submitTransaction()
             }
             .font(.system(size: AppTheme.fontSizeBody, weight: .bold))
             .frame(maxWidth: .infinity)
@@ -705,6 +707,8 @@ struct TextQuickEntryView: View {
             .background(themeColors.primaryColor)
             .foregroundStyle(.white)
             .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadiusSmall))
+            .disabled(isSubmitting)
+            .opacity(isSubmitting ? 0.85 : 1)
         }
         .onAppear {
             selectedCategoryID = availableCategories.first?.id
@@ -717,6 +721,14 @@ struct TextQuickEntryView: View {
         } message: {
             Text(errorMessage)
         }
+    }
+
+    private func submitTransaction() {
+        guard !isSubmitting else { return }
+        isSubmitting = true
+        defer { isSubmitting = false }
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        saveTransaction()
     }
 
     private func saveTransaction() {

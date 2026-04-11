@@ -35,6 +35,11 @@ struct ExpensePieChartView: View {
         expenseSlices.reduce(0) { $0 + $1.amount }
     }
 
+    private var chartHeight: CGFloat {
+        let screenWidth = UIScreen.main.bounds.width
+        return min(max(screenWidth * 0.62, 220), 300)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: AppTheme.spacingLarge) {
             Text("支出分类占比")
@@ -83,7 +88,7 @@ struct ExpensePieChartView: View {
                 .foregroundStyle(by: .value("分类", slice.category.name))
                 .annotation(position: .overlay) {
                     let pct = totalAmount > 0 ? slice.amount / totalAmount : 0
-                    if pct >= 0.08 {
+                    if pct >= 0.01 {
                         Text("\(Int(pct * 100))%")
                             .font(.system(size: 11, weight: .bold))
                             .foregroundStyle(.white)
@@ -95,7 +100,7 @@ struct ExpensePieChartView: View {
                 range: expenseSlices.map { $0.category.color }
             )
             .chartLegend(.hidden)
-            .frame(height: 240)
+            .frame(height: chartHeight)
             .padding(.top, AppTheme.spacingSmall)
 
             // 手动图例：完全可控的高度，显示分类图标+名称+金额+占比
