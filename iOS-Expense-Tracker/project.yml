@@ -40,8 +40,8 @@ targets:
         CFBundleDevelopmentRegion: zh_CN
         CFBundleDisplayName: 小海帐
         CFBundleName: 小海帐
-        CFBundleShortVersionString: "1.0.3"
-        CFBundleVersion: "3"
+        CFBundleShortVersionString: "1.0.4"
+        CFBundleVersion: "4"
         CFBundleIconName: AppIcon
         CFBundleIcons:
           CFBundlePrimaryIcon:

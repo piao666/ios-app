@@ -162,7 +162,7 @@ struct SettingsView: View {
         }
         .fileImporter(
             isPresented: $showingBackupImporter,
-            allowedContentTypes: [.json]
+            allowedContentTypes: [.json, .plainText, .text, .data]
         ) { result in
             handleImport(result)
         }
