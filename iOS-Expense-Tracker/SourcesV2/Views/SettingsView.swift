@@ -1,5 +1,7 @@
+import Foundation
 import SwiftData
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
@@ -11,6 +13,11 @@ struct SettingsView: View {
     @State private var showingAddCategory = false
     @State private var showingDeleteBlockedAlert = false
     @State private var deleteBlockedMessage = ""
+    @State private var showingBackupImporter = false
+    @State private var showingBackupShareSheet = false
+    @State private var exportedBackupURL: URL?
+    @State private var backupAlert: BackupAlertState?
+    @State private var isProcessingBackup = false
 
     private var themeColors: ThemeColorSet {
         ThemeManager.getColorSet(isDark: themeSettings.isDarkMode)
@@ -45,6 +52,7 @@ struct SettingsView: View {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(category.name)
                                     .font(.system(size: AppTheme.fontSizeBody, weight: .semibold))
+
                                 Text(category.type.rawValue)
                                     .font(.system(size: AppTheme.fontSizeCaption))
                                     .foregroundStyle(themeColors.textSecondary)
@@ -54,6 +62,36 @@ struct SettingsView: View {
                 }
                 .onDelete(perform: deleteCategories)
                 .onMove(perform: moveCategories)
+            }
+
+            Section("数据安全") {
+                Button {
+                    exportBackup()
+                } label: {
+                    HStack {
+                        Label("导出备份", systemImage: "square.and.arrow.up.on.square")
+                            .foregroundStyle(themeColors.textPrimary)
+                        Spacer()
+                        if isProcessingBackup {
+                            ProgressView()
+                        }
+                    }
+                }
+                .disabled(isProcessingBackup)
+
+                Button {
+                    showingBackupImporter = true
+                } label: {
+                    HStack {
+                        Label("恢复数据", systemImage: "square.and.arrow.down.on.square")
+                            .foregroundStyle(themeColors.textPrimary)
+                        Spacer()
+                        if isProcessingBackup {
+                            ProgressView()
+                        }
+                    }
+                }
+                .disabled(isProcessingBackup)
             }
 
             Section {
@@ -83,6 +121,57 @@ struct SettingsView: View {
             NavigationStack {
                 CategoryEditorView(category: nil)
             }
+        }
+        .sheet(isPresented: $showingBackupShareSheet) {
+            NavigationStack {
+                List {
+                    Section("备份文件已生成") {
+                        if let exportedBackupURL {
+                            ShareLink(
+                                item: exportedBackupURL,
+                                preview: SharePreview(
+                                    exportedBackupURL.lastPathComponent,
+                                    image: Image(systemName: "externaldrive.badge.checkmark")
+                                )
+                            ) {
+                                Label("分享备份文件", systemImage: "square.and.arrow.up")
+                                    .font(.system(size: AppTheme.fontSizeBody, weight: .semibold))
+                                    .frame(maxWidth: .infinity, alignment: .center)
+                            }
+
+                            Text(exportedBackupURL.lastPathComponent)
+                                .font(.system(size: AppTheme.fontSizeCaption))
+                                .foregroundStyle(themeColors.textSecondary)
+                        } else {
+                            Text("未找到可分享的备份文件。")
+                                .foregroundStyle(themeColors.textSecondary)
+                        }
+                    }
+                }
+                .scrollContentBackground(.hidden)
+                .background(themeColors.backgroundPrimary)
+                .navigationTitle("导出备份")
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("完成") {
+                            showingBackupShareSheet = false
+                        }
+                    }
+                }
+            }
+        }
+        .fileImporter(
+            isPresented: $showingBackupImporter,
+            allowedContentTypes: [.json]
+        ) { result in
+            handleImport(result)
+        }
+        .alert(item: $backupAlert) { alert in
+            Alert(
+                title: Text(alert.title),
+                message: Text(alert.message),
+                dismissButton: .default(Text("确定"))
+            )
         }
         .alert("无法删除分类", isPresented: $showingDeleteBlockedAlert) {
             Button("确定", role: .cancel) {}
@@ -117,18 +206,76 @@ struct SettingsView: View {
         for (index, category) in remainingCategories.enumerated() {
             category.sortOrder = index
         }
+
         try? modelContext.save()
     }
 
     private func moveCategories(from source: IndexSet, to destination: Int) {
         var reordered = categories
         reordered.move(fromOffsets: source, toOffset: destination)
+
         for (index, category) in reordered.enumerated() {
             category.sortOrder = index
         }
+
         try? modelContext.save()
     }
 
+    private func exportBackup() {
+        guard !isProcessingBackup else { return }
+        isProcessingBackup = true
+        defer { isProcessingBackup = false }
+
+        do {
+            let fileURL = try BackupManager.exportData(context: modelContext)
+            exportedBackupURL = fileURL
+            showingBackupShareSheet = true
+        } catch {
+            backupAlert = BackupAlertState(
+                title: "导出失败",
+                message: error.localizedDescription
+            )
+        }
+    }
+
+    private func handleImport(_ result: Result<URL, Error>) {
+        guard !isProcessingBackup else { return }
+
+        switch result {
+        case .success(let url):
+            isProcessingBackup = true
+            defer { isProcessingBackup = false }
+
+            do {
+                try BackupManager.importData(from: url, context: modelContext)
+                backupAlert = BackupAlertState(
+                    title: "恢复完成",
+                    message: "备份数据已成功导入。重复的 ID 已自动跳过。"
+                )
+            } catch {
+                backupAlert = BackupAlertState(
+                    title: "恢复失败",
+                    message: error.localizedDescription
+                )
+            }
+
+        case .failure(let error):
+            if let cocoaError = error as? CocoaError, cocoaError.code == .userCancelled {
+                return
+            }
+
+            backupAlert = BackupAlertState(
+                title: "无法选择备份文件",
+                message: error.localizedDescription
+            )
+        }
+    }
+}
+
+private struct BackupAlertState: Identifiable {
+    let id = UUID()
+    let title: String
+    let message: String
 }
 
 private struct CategoryEditorView: View {
@@ -261,6 +408,7 @@ private struct CategoryEditorView: View {
                     dismiss()
                 }
             }
+
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button("保存") {
                     saveCategory()
@@ -307,7 +455,6 @@ private struct CategoryEditorView: View {
             category.colorHex = selectedColorHex
             category.type = type
 
-            // Keep searchable text in sync after category edits.
             for transaction in transactions where transaction.category.id == category.id {
                 transaction.searchText = Transaction.makeSearchText(
                     note: transaction.note,
